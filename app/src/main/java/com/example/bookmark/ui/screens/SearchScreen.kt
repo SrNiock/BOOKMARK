@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -108,24 +109,39 @@ fun ErrorView(message: String) {
 
 @Composable
 fun BookList(books: List<Book>, viewModel: BookViewModel) {
+    val isLastPage by viewModel.isLastPage
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         itemsIndexed(books) { index, book ->
             BookCard(book)
 
-            if (index >= books.size - 3) {
+            if (index >= books.size - 3 && !isLastPage) {
                 LaunchedEffect(books.size) {
                     viewModel.searchBooks(query = "", isNextPage = true)
                 }
             }
         }
 
-        repeat(3) {
+        // 2. EL CAMBIO CLAVE:
+        // Solo añadimos el item de carga si NO hemos llegado al final
+        if (!isLastPage && books.isNotEmpty()) {
             item {
-                SkeletonBookCard()
-
+                repeat(3) {
+                    SkeletonBookCard()
+                }
             }
-        }
+        } else if (isLastPage && books.isNotEmpty()) {
+            // OPCIONAL: Puedes poner un mensaje de que ya no hay más libros
+            item {
+                Text(
+                    text = "Has llegado al final de la biblioteca",
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+            }
     }
+}
 }
 
 

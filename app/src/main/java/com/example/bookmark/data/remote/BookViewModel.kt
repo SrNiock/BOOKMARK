@@ -28,9 +28,10 @@ class BookViewModel : ViewModel() {
     // Variables de control de paginación
     private var currentPage = 1
     private var currentQuery = ""
-    private var isLastPage = false
+    private var _isLastPage = mutableStateOf(false)
+    val isLastPage: State<Boolean> = _isLastPage
     private val accumulatedBooks = mutableListOf<Book>()
-
+    private var isCurrentlyLoading = false
 
     // Busqueda automatica cuando dejas de escribir
     fun onQueryChanged(query: String) {
@@ -51,21 +52,20 @@ class BookViewModel : ViewModel() {
 
     fun searchBooks(query: String,isNextPage:Boolean = false) {
 
-
+        if (isCurrentlyLoading || (isNextPage && _isLastPage.value)) return
         // Si es una búsqueda nueva, reseteamos todo
         if (!isNextPage) {
             currentPage = 1
-            isLastPage = false
+            _isLastPage.value = false
             accumulatedBooks.clear()
             currentQuery = query
             _state.value = BookUiState.Loading
         }
 
 
-        if (isLastPage) return
-
 
         viewModelScope.launch {
+            isCurrentlyLoading = true // Bloqueamos
             try {
                 val searchWords = currentQuery.trim().lowercase().split("\\s+".toRegex())
 
@@ -73,7 +73,7 @@ class BookViewModel : ViewModel() {
                 val rawResponse = repository.searchBooks(currentQuery.trim(),currentPage)
 
                 if (rawResponse.isEmpty()) {
-                    isLastPage = true
+                    _isLastPage.value = true
                     // Si es la primera página y está vacía, avisamos
                     if (currentPage == 1) _state.value = BookUiState.Success(emptyList())
                     return@launch
@@ -84,10 +84,10 @@ class BookViewModel : ViewModel() {
                     val title = book.title.lowercase()
 
                     // CRITERIO 1: Coincidencia Exacta (Prioridad Máxima)
-                    if (title == query.lowercase()) score += 100
+                    if (title == currentQuery.lowercase()) score += 100
 
                     // CRITERIO 2: Empieza por la búsqueda
-                    if (title.startsWith(query.lowercase())) score += 50
+                    if (title.startsWith(currentQuery.lowercase())) score += 50
 
                     // CRITERIO 3: ¿Cuántas palabras de la búsqueda están en el título?
                     val matches = searchWords.count { word -> title.contains(word) }
@@ -111,7 +111,7 @@ class BookViewModel : ViewModel() {
                 accumulatedBooks.addAll(filteredBooks)
 
 
-                val finalResult = accumulatedBooks.distinctBy { it.title.lowercase() }
+                val finalResult = accumulatedBooks.distinctBy { it.key }
                 _state.value = BookUiState.Success(finalResult.toList())
 
                 currentPage++
@@ -120,7 +120,10 @@ class BookViewModel : ViewModel() {
             } catch (e: Exception) {
                 if (isNextPage) {
                     _state.value = BookUiState.Error("Error de búsqueda")
-                }            }
+                }
+            }finally {
+                isCurrentlyLoading = false // Desbloqueamos
+            }
         }
     }
 }

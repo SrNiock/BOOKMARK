@@ -25,7 +25,14 @@ class BookViewModel : ViewModel() {
     // Guardamos el trabajo de búsqueda para poder cancelarlo
     private var searchJob: Job? = null
 
-    // ESTA ES LA FUNCIÓN QUE PREGUNTABAS
+    // Variables de control de paginación
+    private var currentPage = 1
+    private var currentQuery = ""
+    private var isLastPage = false
+    private val allBooks = mutableListOf<Book>() // Aquí acumulamos los resultados
+
+
+    // Busqueda automatica cuando dejas de escribir
     fun onQueryChanged(query: String) {
         searchJob?.cancel() // Cancelamos el temporizador anterior
 
@@ -48,25 +55,46 @@ class BookViewModel : ViewModel() {
         viewModelScope.launch {
             _state.value = BookUiState.Loading
             try {
-                // 1. Limpiamos y separamos las palabras
-                val words = query.trim().lowercase().split("\\s+".toRegex())
+                val searchWords = query.trim().lowercase().split("\\s+".toRegex())
 
-                // 2. Creamos la "Query Flexible":
-                // Ponemos ~1 a cada palabra (permite 1 error por palabra)
-                val flexibleQuery = words.joinToString(" ") { "$it~1" }
+                // 1. Obtenemos los resultados "crudos" de la API
+                val rawResponse = repository.searchBooks(query.trim())
 
-                // 3. Llamamos a la API con el mode=everything
-                var books = repository.searchBooks(query) // Intento 1: Exacto
+                // 2. Calculamos el Score de cada libro
+                val rankedBooks = rawResponse.map { book ->
+                    var score = 0
+                    val title = book.title.lowercase()
 
-                if (books.isEmpty()) {
-                    // Intento 2: Si falló, aplicamos Fuzzy
-                    val fuzzyQuery = query.split(" ").joinToString(" ") { "$it~1" }
-                    books = repository.searchBooks(fuzzyQuery)
+                    // CRITERIO 1: Coincidencia Exacta (Prioridad Máxima)
+                    if (title == query.lowercase()) score += 100
+
+                    // CRITERIO 2: Empieza por la búsqueda
+                    if (title.startsWith(query.lowercase())) score += 50
+
+                    // CRITERIO 3: ¿Cuántas palabras de la búsqueda están en el título?
+                    val matches = searchWords.count { word -> title.contains(word) }
+                    score += matches * 30 // 30 puntos por cada palabra encontrada
+
+                    // CRITERIO 4: Penalización si NO tiene portada o autor
+                    if (book.coverId != null) score += 40
+                    if (!book.authorNames.isNullOrEmpty()) score += 20
+
+                    // Asociamos el libro con su puntuación
+                    Pair(book, score)
                 }
 
-                _state.value = BookUiState.Success(books.distinctBy { it.title })
+                // 3. FILTRADO AGRESIVO:
+                // Si un libro no tiene al menos una palabra del título o un score mínimo, fuera.
+                val filteredBooks = rankedBooks
+                    .filter { it.second >= 50 } // Umbral de calidad: Ajusta este número
+                    .sortedByDescending { it.second } // Los mejores primero
+                    .map { it.first } // Nos quedamos solo con el objeto Book
+                    .distinctBy { it.title.lowercase() } // Sin duplicados
+
+                _state.value = BookUiState.Success(filteredBooks)
+
             } catch (e: Exception) {
-                _state.value = BookUiState.Error("Error de red")
+                _state.value = BookUiState.Error("Error de búsqueda")
             }
         }
     }

@@ -29,7 +29,7 @@ class BookViewModel : ViewModel() {
     private var currentPage = 1
     private var currentQuery = ""
     private var isLastPage = false
-    private val allBooks = mutableListOf<Book>() // Aquí acumulamos los resultados
+    private val accumulatedBooks = mutableListOf<Book>()
 
 
     // Busqueda automatica cuando dejas de escribir
@@ -40,26 +40,44 @@ class BookViewModel : ViewModel() {
 
         searchJob = viewModelScope.launch {
             delay(600) // Esperamos a que el usuario deje de escribir
-            searchBooks(query) // Llamamos a la función que ya teníamos
+            searchBooks(query, isNextPage = false) // Llamamos a la función que ya teníamos
         }
     }
     init {
         // Podemos hacer una búsqueda inicial por defecto
-        searchBooks("the lord of the rings")
+        searchBooks("the lord of the rings", isNextPage = false)
     }
 
 
-    fun searchBooks(query: String) {
-        if (query.isBlank()) return
+    fun searchBooks(query: String,isNextPage:Boolean = false) {
+
+
+        // Si es una búsqueda nueva, reseteamos todo
+        if (!isNextPage) {
+            currentPage = 1
+            isLastPage = false
+            accumulatedBooks.clear()
+            currentQuery = query
+            _state.value = BookUiState.Loading
+        }
+
+
+        if (isLastPage) return
+
 
         viewModelScope.launch {
-            _state.value = BookUiState.Loading
             try {
-                val searchWords = query.trim().lowercase().split("\\s+".toRegex())
+                val searchWords = currentQuery.trim().lowercase().split("\\s+".toRegex())
 
                 // 1. Obtenemos los resultados "crudos" de la API
-                val rawResponse = repository.searchBooks(query.trim())
+                val rawResponse = repository.searchBooks(currentQuery.trim(),currentPage)
 
+                if (rawResponse.isEmpty()) {
+                    isLastPage = true
+                    // Si es la primera página y está vacía, avisamos
+                    if (currentPage == 1) _state.value = BookUiState.Success(emptyList())
+                    return@launch
+                }
                 // 2. Calculamos el Score de cada libro
                 val rankedBooks = rawResponse.map { book ->
                     var score = 0
@@ -89,13 +107,20 @@ class BookViewModel : ViewModel() {
                     .filter { it.second >= 50 } // Umbral de calidad: Ajusta este número
                     .sortedByDescending { it.second } // Los mejores primero
                     .map { it.first } // Nos quedamos solo con el objeto Book
-                    .distinctBy { it.title.lowercase() } // Sin duplicados
 
-                _state.value = BookUiState.Success(filteredBooks)
+                accumulatedBooks.addAll(filteredBooks)
+
+
+                val finalResult = accumulatedBooks.distinctBy { it.title.lowercase() }
+                _state.value = BookUiState.Success(finalResult.toList())
+
+                currentPage++
+
 
             } catch (e: Exception) {
-                _state.value = BookUiState.Error("Error de búsqueda")
-            }
+                if (isNextPage) {
+                    _state.value = BookUiState.Error("Error de búsqueda")
+                }            }
         }
     }
 }

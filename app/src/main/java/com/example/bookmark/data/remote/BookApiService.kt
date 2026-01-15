@@ -9,6 +9,8 @@ interface BookApiService{
     suspend fun searchBooks(
         @Query("q") query: String,
         @Query("mode") mode: String = "everything", // <--- El truco está aquí
+        @Query("page") page: Int = 1, // <--- Solo añade esto con valor por defecto 1
         @Query("fields") fields: String = "key,title,author_name,cover_i,first_publish_year",
+        @Query("limit") limit: Int = 20 //Hacer pruebas de velocidad
     ) : BookSearchResponse
 }

@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Search
@@ -24,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
@@ -79,7 +83,7 @@ fun BookScreen(viewModel: BookViewModel) {
         when (state) {
             is BookUiState.Loading -> LoadingView()
             is BookUiState.Error -> ErrorView(state.message)
-            is BookUiState.Success -> BookList(state.books)
+            is BookUiState.Success -> BookList(state.books,viewModel)
         }
     }
 }
@@ -103,14 +107,45 @@ fun ErrorView(message: String) {
 // --- LISTA Y CARDS ---
 
 @Composable
-fun BookList(books: List<Book>) {
+fun BookList(books: List<Book>, viewModel: BookViewModel) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        items(books) { book ->
+        itemsIndexed(books) { index, book ->
             BookCard(book)
+
+            if (index >= books.size - 3) {
+                LaunchedEffect(books.size) {
+                    viewModel.searchBooks(query = "", isNextPage = true)
+                }
+            }
+        }
+
+        repeat(3) {
+            item {
+                SkeletonBookCard()
+
+            }
         }
     }
 }
 
+
+@Composable
+fun SkeletonBookCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.LightGray.copy(alpha = 0.3f))
+    ) {
+        Row(modifier = Modifier.padding(12.dp)) {
+            Box(modifier = Modifier.size(80.dp, 120.dp).background(Color.Gray.copy(alpha = 0.2f)))
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Box(modifier = Modifier.size(150.dp, 20.dp).background(Color.Gray.copy(alpha = 0.2f)))
+                Spacer(Modifier.height(8.dp))
+                Box(modifier = Modifier.size(100.dp, 15.dp).background(Color.Gray.copy(alpha = 0.2f)))
+            }
+        }
+    }
+}
 @Composable
 fun BookCard(book: Book) {
     Card(

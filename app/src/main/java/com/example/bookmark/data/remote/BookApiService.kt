@@ -8,5 +8,7 @@ interface BookApiService{
     @GET("search.json")
     suspend fun searchBooks(
         @Query("q") query: String,
+        @Query("mode") mode: String = "everything", // <--- El truco está aquí
+        @Query("fields") fields: String = "key,title,author_name,cover_i,first_publish_year"
     ) : BookSearchResponse
 }

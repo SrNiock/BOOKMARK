@@ -6,6 +6,8 @@ import androidx.compose.runtime.State
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bookmark.data.remote.dto.Book
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 sealed class BookUiState {
@@ -20,21 +22,51 @@ class BookViewModel : ViewModel() {
 
     private var _state: MutableState<BookUiState> = mutableStateOf(BookUiState.Loading)
     val state: State<BookUiState> = _state
+    // Guardamos el trabajo de búsqueda para poder cancelarlo
+    private var searchJob: Job? = null
 
+    // ESTA ES LA FUNCIÓN QUE PREGUNTABAS
+    fun onQueryChanged(query: String) {
+        searchJob?.cancel() // Cancelamos el temporizador anterior
+
+        if (query.length < 3) return // No buscamos si hay menos de 3 letras
+
+        searchJob = viewModelScope.launch {
+            delay(600) // Esperamos a que el usuario deje de escribir
+            searchBooks(query) // Llamamos a la función que ya teníamos
+        }
+    }
     init {
         // Podemos hacer una búsqueda inicial por defecto
         searchBooks("the lord of the rings")
     }
 
+
     fun searchBooks(query: String) {
+        if (query.isBlank()) return
+
         viewModelScope.launch {
             _state.value = BookUiState.Loading
             try {
-                // El repositorio ahora devuelve la lista de objetos Book
-                val books = repository.searchBooks(query)
-                _state.value = BookUiState.Success(books)
+                // 1. Limpiamos y separamos las palabras
+                val words = query.trim().lowercase().split("\\s+".toRegex())
+
+                // 2. Creamos la "Query Flexible":
+                // Ponemos ~1 a cada palabra (permite 1 error por palabra)
+                val flexibleQuery = words.joinToString(" ") { "$it~1" }
+
+                // 3. Llamamos a la API con el mode=everything
+                var books = repository.searchBooks(query) // Intento 1: Exacto
+
+                if (books.isEmpty()) {
+                    // Intento 2: Si falló, aplicamos Fuzzy
+                    val fuzzyQuery = query.split(" ").joinToString(" ") { "$it~1" }
+                    books = repository.searchBooks(fuzzyQuery)
+                }
+
+                _state.value = BookUiState.Success(books.distinctBy { it.title })
             } catch (e: Exception) {
-                _state.value = BookUiState.Error("Error al cargar libros: ${e.localizedMessage}")
+                _state.value = BookUiState.Error("Error de red")
             }
         }
     }

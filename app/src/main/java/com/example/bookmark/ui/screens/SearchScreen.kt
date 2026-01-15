@@ -1,5 +1,6 @@
 package com.example.bookmark.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,7 +61,10 @@ fun BookScreen(viewModel: BookViewModel) {
         // Buscador
         OutlinedTextField(
             value = searchText,
-            onValueChange = { searchText = it },
+            onValueChange = { newText ->
+                searchText = newText // Actualiza lo que el usuario ve inmediatamente
+                viewModel.onQueryChanged(newText) // Avisa al ViewModel para que empiece a contar
+            },
             label = { Text("Buscar libros...") },
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             singleLine = true,
@@ -115,21 +120,45 @@ fun BookCard(book: Book) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Construcción de la URL de la portada
             val coverUrl = book.coverId?.let { "https://covers.openlibrary.org/b/id/$it-M.jpg" }
-                ?: "https://via.placeholder.com/150"
+            Box(
+                modifier = Modifier
+                    .size(80.dp, 120.dp) // Forzamos a que el espacio sea siempre igual
+                    .background(Color.LightGray.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
 
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(coverUrl)
-                    .crossfade(true) // Hace que la imagen aparezca con un suave degradado
-                    .diskCachePolicy(CachePolicy.ENABLED) // Fuerza el guardado en memoria interna
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .build(),
-                contentDescription = null,
-                modifier = Modifier.size(80.dp, 120.dp),
-                contentScale = ContentScale.Crop,
-                // Muestra una imagen gris mientras descarga para que el usuario no vea un hueco blanco
-                //placeholder = painterResource(R.drawable.placeholder_gray),
-            )
+            if(coverUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(coverUrl)
+                        .crossfade(true) // Hace que la imagen aparezca con un suave degradado
+                        .diskCachePolicy(CachePolicy.ENABLED) // Fuerza el guardado en memoria interna
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    // Muestra una imagen gris mientras descarga para que el usuario no vea un hueco blanco
+                    fallback = painterResource(R.drawable.librologo),
+                    error = painterResource(R.drawable.librologo)
+                )
+            }else{
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Book, // Icono de un libro
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(40.dp)
+
+                    )
+                    Text(
+                        text = "Sin Portada",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+            }
+            }
+            }
 
             Spacer(modifier = Modifier.width(16.dp))
 
@@ -137,8 +166,9 @@ fun BookCard(book: Book) {
                 Text(text = book.title, style = MaterialTheme.typography.titleMedium)
                 Text(
                     text = book.authorNames?.joinToString(", ") ?: "Autor desconocido",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis                )
             }
         }
     }

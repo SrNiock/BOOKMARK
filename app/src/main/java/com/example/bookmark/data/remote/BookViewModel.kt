@@ -9,7 +9,10 @@ import com.example.bookmark.data.remote.dto.Book
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 sealed class BookUiState {
     object Loading : BookUiState()
     data class Success(val books: List<Book>) : BookUiState()
@@ -49,6 +52,54 @@ class BookViewModel : ViewModel() {
         searchBooks("the lord of the rings", isNextPage = false)
     }
 
+    private fun calcultateBookScore(book: Book, query: String, regex: Regex): Int {
+        val rawTitle = book.title ?: ""
+        val title = rawTitle.lowercase()
+            .replace("&quot;", "\"")
+            .replace("&amp;", "&")
+            .replace(":", "") // Eliminamos dos puntos para mejorar coincidencias
+            .trim()
+
+        if (title.isBlank()) return -500 // Seguridad extra
+        var score = 0
+
+        val cleanQuery = query.replace("*", "").trim().lowercase()
+
+        // 1. COINCIDENCIA DE TEXTO
+        if (title == cleanQuery) score += 500 // Exacto
+        if (title.contains(cleanQuery)) score += 200 // Contiene la frase
+
+        // 2. PALABRAS CLAVE (Importancia de términos individuales)
+        val stopWords = setOf("the", "a", "an", "el", "la", "de", "of", "in", "and")
+        val searchWords = cleanQuery.split("\\s+".toRegex()).filter { it.length > 2 && !stopWords.contains(it) }
+        score += searchWords.count { title.contains(it) } * 80
+
+        // 3. CALIDAD DE DATOS (Aumentamos los puntos para que sean prioritarios)
+        // Si tiene portada, le damos un bono que supera casi cualquier match parcial
+        if (book.coverId != null) {
+            score += 200 // Antes era 50
+        }
+
+        // Si tiene autor real, sumamos; si no, penalizamos fuerte
+        if (!book.authorNames.isNullOrEmpty() && book.authorNames.first() != "Autor desconocido") {
+            score += 150 // Antes era 40
+        } else {
+            score -= 300 // Penalización mayor para libros "fantasma"
+        }
+
+        // 4. FILTRO DE RUIDO (Para evitar guías o libros de colorear)
+        val noiseWords = setOf("guide", "coloring", "summary", "workbook", "study", "notes")
+        noiseWords.forEach { word ->
+            if (title.contains(word) && !cleanQuery.contains(word)) {
+                score -= 400 // Penalización masiva si es una guía y no se buscó una guía
+            }
+        }
+
+        // 5. PENALIZACIÓN POR LONGITUD
+        val diff = (title.length - cleanQuery.length).coerceAtLeast(0)
+        return score - (diff * 5)
+    }
+
 
     fun searchBooks(query: String,isNextPage:Boolean = false) {
 
@@ -67,48 +118,48 @@ class BookViewModel : ViewModel() {
         viewModelScope.launch {
             isCurrentlyLoading = true // Bloqueamos
             try {
-                val searchWords = currentQuery.trim().lowercase().split("\\s+".toRegex())
+                //Nuevo busqueda con *
+                val queryText: String = currentQuery.trim().lowercase()
+
+                val effectiveQuery = if (!queryText.contains(" ") && !queryText.contains("*")) {
+                    "$queryText*"
+                } else {
+                    queryText
+                }
+                val regexPattern = effectiveQuery.replace("*", ".*").toRegex()
+                val rawResponse = repository.searchBooks(effectiveQuery, currentPage)
 
                 // 1. Obtenemos los resultados "crudos" de la API
-                val rawResponse = repository.searchBooks(currentQuery.trim(),currentPage)
 
-                if (rawResponse.isEmpty()) {
+                val validRawResponse = rawResponse.filter { !it.title.isNullOrBlank() }
+
+                if (validRawResponse.isEmpty()) {
                     _isLastPage.value = true
                     // Si es la primera página y está vacía, avisamos
                     if (currentPage == 1) _state.value = BookUiState.Success(emptyList())
                     return@launch
                 }
-                // 2. Calculamos el Score de cada libro
-                val rankedBooks = rawResponse.map { book ->
-                    var score = 0
-                    val title = book.title.lowercase()
+                // 2. Filtrado y Scoring en hilo de cómputo (Optimización de CPU)
+                // 1. Especificamos el tipo List<Book> en la variable
+                val rankedBooks: List<Book> = withContext(Dispatchers.Default) {
+                    // 2. Creamos una lista intermedia de pares (Libro, Puntuación)
+                    // Esto ayuda al compilador a saber exactamente qué es cada cosa
+                    val scoredList: List<Pair<Book, Int>> = rawResponse
+                        .filter { !it.title.isNullOrBlank() }
+                        .map { book ->
+                            val score = calcultateBookScore(book, queryText, regexPattern)
+                            Pair(book, score)
+                        }
 
-                    // CRITERIO 1: Coincidencia Exacta (Prioridad Máxima)
-                    if (title == currentQuery.lowercase()) score += 100
-
-                    // CRITERIO 2: Empieza por la búsqueda
-                    if (title.startsWith(currentQuery.lowercase())) score += 50
-
-                    // CRITERIO 3: ¿Cuántas palabras de la búsqueda están en el título?
-                    val matches = searchWords.count { word -> title.contains(word) }
-                    score += matches * 30 // 30 puntos por cada palabra encontrada
-
-                    // CRITERIO 4: Penalización si NO tiene portada o autor
-                    if (book.coverId != null) score += 40
-                    if (!book.authorNames.isNullOrEmpty()) score += 20
-
-                    // Asociamos el libro con su puntuación
-                    Pair(book, score)
+                    // 3. Filtramos y devolvemos solo los libros
+                    scoredList
+                        .filter { it.second >= 50 }
+                        .sortedByDescending { it.second }
+                        .map { it.first }
                 }
 
-                // 3. FILTRADO AGRESIVO:
-                // Si un libro no tiene al menos una palabra del título o un score mínimo, fuera.
-                val filteredBooks = rankedBooks
-                    .filter { it.second >= 50 } // Umbral de calidad: Ajusta este número
-                    .sortedByDescending { it.second } // Los mejores primero
-                    .map { it.first } // Nos quedamos solo con el objeto Book
 
-                accumulatedBooks.addAll(filteredBooks)
+                accumulatedBooks.addAll(rankedBooks)
 
 
                 val finalResult = accumulatedBooks.distinctBy { it.key }

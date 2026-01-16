@@ -25,7 +25,7 @@ fun NavGraph(
 
         // --- PANTALLA DE LIBROS ---
         composable<Screen.Books> {
-            BooksScreen()
+            BooksScreen(bookViewModel)
         }
 
         // --- PANTALLA DE BÚSQUEDA ---

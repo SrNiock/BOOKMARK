@@ -129,7 +129,7 @@ class BookViewModel : ViewModel() {
                 val regexPattern = effectiveQuery.replace("*", ".*").toRegex()
                 val rawResponse = repository.searchBooks(effectiveQuery, currentPage)
 
-                // 1. Obtenemos los resultados "crudos" de la API
+                // 1. Obtenemos los resultados "crudos" de la API y tal
 
                 val validRawResponse = rawResponse.filter { !it.title.isNullOrBlank() }
 

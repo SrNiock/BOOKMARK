@@ -61,6 +61,8 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.play.services.fitness)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -68,4 +70,9 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // SDK de Supabase
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:1.5.0")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:1.5.0")
+    // Serialización para convertir tablas a objetos Kotlin
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 }

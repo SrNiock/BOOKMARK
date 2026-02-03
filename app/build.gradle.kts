@@ -1,15 +1,22 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+// 1. Lógica para cargar las propiedades del archivo local.properties
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
 }
 
 android {
     namespace = "com.example.bookmark"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36 // Ajustado a formato estándar
 
     defaultConfig {
         applicationId = "com.example.bookmark"
@@ -19,6 +26,19 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // 2. Definir los campos de BuildConfig leyendo de local.properties
+        // El tercer parámetro necesita comillas extras: "\"valor\""
+        buildConfigField(
+            "String",
+            "SUPABASE_URL",
+            "\"${localProperties.getProperty("SUPABASE_URL") ?: ""}\""
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_KEY",
+            "\"${localProperties.getProperty("SUPABASE_KEY") ?: ""}\""
+        )
     }
 
     buildTypes {
@@ -30,15 +50,20 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
+        // 3. ¡IMPORTANTE! Activar buildConfig explícitamente en versiones nuevas de Android Studio
+        buildConfig = true
     }
 }
 

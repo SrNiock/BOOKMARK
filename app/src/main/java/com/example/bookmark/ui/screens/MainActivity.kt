@@ -31,17 +31,20 @@ import com.example.bookmark.ui.navigation.NavGraph
 import com.example.bookmark.ui.navigation.bottomNavItems
 import com.example.bookmark.ui.theme.BOOKMARKTheme
 
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             BOOKMARKTheme {
+
                CustomScaffold()
             }
         }
     }
 }
+
 
 
 @Composable

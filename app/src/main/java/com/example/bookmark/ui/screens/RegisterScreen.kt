@@ -103,7 +103,6 @@ fun RegisterScreen(
                         nickname = nickname,
                         correoElectronico = correo,
                         contrasena = contrasena,
-                        perfilPublico = true // Por defecto lo hacemos público
                         // fotoPerfil y fotoBanner ya son null por defecto
                     )
 

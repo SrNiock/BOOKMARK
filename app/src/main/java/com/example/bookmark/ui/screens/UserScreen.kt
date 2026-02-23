@@ -19,112 +19,193 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+// IMPORTANTE: Este es el import de la librería que acabamos de añadir
 import coil.compose.AsyncImage
-import com.example.bookmark.ui.supaBase.AuthRepository
-import com.example.bookmark.ui.supaBase.Usuario
-import com.example.bookmark.ui.utils.SessionManager
-import kotlinx.coroutines.launch
 
 @Composable
 fun UserScreen() {
     val scrollState = rememberScrollState()
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
 
-    val sessionManager = remember { SessionManager(context) }
-    val authRepository = remember { AuthRepository() }
-    val correoActual = sessionManager.obtenerCorreoSesion() ?: ""
+    // --- ESTADOS DE LA PANTALLA ---
+    // Aquí guardaremos temporalmente la ruta de la foto elegida para mostrarla
+    var bannerUri by remember { mutableStateOf<Uri?>(null) }
+    var profileUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Estados
-    var bannerUrl by remember { mutableStateOf<String?>(null) }
-    var profileUrl by remember { mutableStateOf<String?>(null) }
-    var nicknameUsuario by remember { mutableStateOf("Usuario") }
-    var estaCargando by remember { mutableStateOf(false) }
+    // Aquí guardaremos el Nickname (de momento ponemos uno de prueba, luego lo traeremos de la BD)
+    var nicknameUsuario by remember { mutableStateOf("Cargando...") }
 
-    // CARGA DE DATOS SEGURA
-    LaunchedEffect(correoActual) {
-        if (correoActual.isNotEmpty()) {
-            authRepository.obtenerUsuario(correoActual).onSuccess { usuario ->
-                nicknameUsuario = usuario.nickname
-                bannerUrl = usuario.fotoBanner
-                profileUrl = usuario.fotoPerfil
-            }.onFailure {
-                nicknameUsuario = "Error al cargar perfil"
-            }
+    // --- LANZADORES DE LA GALERÍA ---
+    // 1. Para el Banner
+    val bannerPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            bannerUri = uri
+            // TODO: Más adelante, aquí subiremos la foto a Supabase Storage
+            println("Banner seleccionado: $uri")
         }
     }
 
-    fun manejarSubida(uri: Uri, esBanner: Boolean) {
-        coroutineScope.launch {
-            estaCargando = true // Empieza la barra
-            try {
-                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                if (bytes != null) {
-                    val nombreArchivo = if (esBanner) "banner_${correoActual}.jpg" else "perfil_${correoActual}.jpg"
-
-                    val resultado = authRepository.subirImagenStorage(nombreArchivo, bytes)
-
-                    resultado.onSuccess { url ->
-                        authRepository.actualizarFotoTabla(correoActual, if (esBanner) "fotoBanner" else "fotoPerfil", url)
-                        if (esBanner) bannerUrl = url else profileUrl = url
-                    }.onFailure {
-                        println("Error en la subida")
-                    }
-                }
-            } catch (e: Exception) {
-                println("Error de lectura de archivo")
-            } finally {
-                estaCargando = false // ¡ESTO ES CLAVE! Pase lo que pase, la barra se quita aquí
-            }
+    // 2. Para la Foto de Perfil
+    val profilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            profileUri = uri
+            // TODO: Más adelante, aquí subiremos la foto a Supabase Storage
+            println("Perfil seleccionado: $uri")
         }
     }
 
-    val bannerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { it?.let { manejarSubida(it, true) } }
-    val profileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { it?.let { manejarSubida(it, false) } }
+    // Colores
+    val backgroundColor = Color(0xFF121212)
+    val surfaceColor = Color(0xFF1E1E1E)
+    val accentColor = Color(0xFF00E5FF)
+
+    // Simulamos que cargamos el nickname desde la base de datos
+    LaunchedEffect(Unit) {
+        // TODO: Llamaremos a authRepository.obtenerUsuario()
+        // De momento, lo fingimos:
+        nicknameUsuario = "PauLibros" // El nickname de tu captura
+    }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF121212)).verticalScroll(scrollState)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+            .verticalScroll(scrollState)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
-            // Banner
+        // --- SECCIÓN 1: BANNER Y FOTO DE PERFIL ---
+        Box(
+            modifier = Modifier.fillMaxWidth().height(220.dp)
+        ) {
+            // 1.1 El Banner (Fondo)
             Box(
-                modifier = Modifier.fillMaxWidth().height(160.dp).background(Color.DarkGray)
-                    .clickable { bannerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .background(Color.DarkGray)
+                    .clickable {
+                        // ¡MAGIA! Esto abre la galería pidiendo solo imágenes
+                        bannerPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                AsyncImage(model = bannerUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                if (bannerUri != null) {
+                    // Si hay foto, la pintamos ocupando todo el espacio
+                    AsyncImage(
+                        model = bannerUri,
+                        contentDescription = "Banner del usuario",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop // Recorta la foto para que encaje perfecto
+                    )
+                } else {
+                    Text("Toca para añadir un Banner", color = Color.White)
+                }
             }
 
-            // Foto Perfil
+            // 1.2 La Foto de Perfil (Superpuesta)
             Box(
-                modifier = Modifier.size(110.dp).align(Alignment.BottomStart).offset(x = 24.dp, y = 10.dp)
-                    .clip(CircleShape).background(Color.Gray).border(3.dp, Color(0xFF00E5FF), CircleShape)
-                    .clickable { profileLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                modifier = Modifier
+                    .size(110.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = 24.dp, y = 10.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray)
+                    .border(3.dp, accentColor, CircleShape)
+                    .clickable {
+                        // Abre la galería para el perfil
+                        profilePickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                AsyncImage(model = profileUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                if (profileUri != null) {
+                    AsyncImage(
+                        model = profileUri,
+                        contentDescription = "Foto de perfil",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text("Foto", color = Color.White)
+                }
             }
         }
 
-        if (estaCargando) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF00E5FF))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text(text = nicknameUsuario, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // BOTÓN DE CERRAR SESIÓN (Para limpiar el crasheo si el correo estaba mal)
-            Button(
-                onClick = {
-                    sessionManager.cerrarSesion()
-                    // Aquí deberías navegar al Login, pero para probar simplemente cierra la sesión
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.6f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Cerrar Sesión")
-            }
+        // --- SECCIÓN 2: INFO DEL USUARIO ---
+        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+            Text(
+                text = nicknameUsuario, // Usamos la variable que se actualizará con la BD
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Text(
+                text = "Sci-Fi Enthusiast • Night Owl • Always looking for the next great space opera.",
+                fontSize = 14.sp,
+                color = Color.LightGray,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // --- SECCIÓN 3: AMISTADES ---
+        Text(
+            text = "Amistades", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            colors = CardDefaults.cardColors(containerColor = surfaceColor)
+        ) {
+            Text(
+                text = "Aún no tienes amigos añadidos. ¡Pronto podrás buscarlos aquí!",
+                color = Color.Gray, modifier = Modifier.padding(16.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // --- SECCIÓN 4: LOS 4 LIBROS FAVORITOS ---
+        Text(
+            text = "Mis 4 Favoritos", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            BookPlaceholderBox(modifier = Modifier.weight(1f))
+            BookPlaceholderBox(modifier = Modifier.weight(1f))
+            BookPlaceholderBox(modifier = Modifier.weight(1f))
+            BookPlaceholderBox(modifier = Modifier.weight(1f))
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+    }
+}
+
+@Composable
+fun BookPlaceholderBox(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .aspectRatio(0.7f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF1E1E1E))
+            .border(1.dp, Color(0xFF333333), RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("Libro", color = Color.Gray, fontSize = 12.sp)
     }
 }

@@ -8,10 +8,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.bookmark.ui.supaBase.AuthRepository
+import com.example.bookmark.ui.utils.SessionManager
 import kotlinx.coroutines.launch
 
 @Composable
@@ -32,8 +34,11 @@ fun LoginScreen(
 
     // Para lanzar la corrutina de login
     val coroutineScope = rememberCoroutineScope()
-    // Instancia de tu repositorio
     val authRepository = remember { AuthRepository() }
+
+    // Herramientas para la sesión
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
 
     Column(
         modifier = Modifier
@@ -50,7 +55,7 @@ fun LoginScreen(
         // Campo: Correo Electrónico
         OutlinedTextField(
             value = correo,
-            onValueChange = { correo = it },
+            onValueChange = { correo = it.trim() }, // Usamos trim() para evitar espacios en blanco por error
             label = { Text("Correo Electrónico") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
@@ -65,9 +70,7 @@ fun LoginScreen(
             label = { Text("Contraseña") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            // Si passwordVisible es true, muestra el texto. Si es false, pone asteriscos.
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            // Aquí añadimos el icono al final del campo
             trailingIcon = {
                 val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 val description = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
@@ -99,6 +102,10 @@ fun LoginScreen(
 
                         resultado.onSuccess { usuario ->
                             isLoading = false
+
+                            // 👇 ¡LA LÍNEA CLAVE! Guardamos el correo en el móvil 👇
+                            sessionManager.guardarCorreoSesion(correo)
+
                             // ¡Login exitoso! Saltamos a la pantalla de Libros
                             onLoginSuccess()
                         }.onFailure { error ->

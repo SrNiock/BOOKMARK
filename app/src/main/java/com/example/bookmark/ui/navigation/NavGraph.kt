@@ -16,11 +16,15 @@ import com.example.bookmark.ui.screens.UserScreen
 fun NavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    bookViewModel: BookViewModel
+    bookViewModel: BookViewModel,
+    isLoggedIn: Boolean
 ) {
+    // MAGIA AQUÍ: Decide dónde arrancar basado en si hay sesión
+    val startDest = if (isLoggedIn) Screen.Books else Screen.Login
+
     NavHost(
         navController = navController,
-        startDestination = Screen.Login, // <-- Vuelve a arrancar aquí por defecto
+        startDestination = startDest,
         modifier = modifier
     ) {
         composable<Screen.Login> {
@@ -46,7 +50,7 @@ fun NavGraph(
         }
 
         composable<Screen.Books> {
-            BooksScreen(bookViewModel) // o BooksScreen(bookViewModel)
+            BooksScreen(bookViewModel)
         }
 
         composable<Screen.Search> {

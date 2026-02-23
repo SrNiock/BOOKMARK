@@ -4,21 +4,21 @@ import android.content.Context
 import android.content.SharedPreferences
 
 class SessionManager(context: Context) {
-    // Creamos nuestro "bloc de notas" interno llamado "AppConfig"
-    private val prefs: SharedPreferences = context.getSharedPreferences("AppConfig", Context.MODE_PRIVATE)
+    // Crea un archivo privado en el móvil llamado "MiSesion"
+    private val prefs: SharedPreferences = context.getSharedPreferences("MiSesion", Context.MODE_PRIVATE)
 
-    // Guardar el correo cuando inician sesión o se registran
-    fun guardarSesion(correo: String) {
-        prefs.edit().putString("CORREO_USUARIO", correo).apply()
+    // Escribe el correo en el bloc de notas
+    fun guardarCorreoSesion(correo: String) {
+        prefs.edit().putString("correo_usuario", correo).apply()
     }
 
-    // Leer el correo (si devuelve null, significa que nadie ha iniciado sesión)
+    // Lee el correo (devuelve null si nadie ha iniciado sesión)
     fun obtenerCorreoSesion(): String? {
-        return prefs.getString("CORREO_USUARIO", null)
+        return prefs.getString("correo_usuario", null)
     }
 
-    // Para cuando hagamos el botón de "Cerrar sesión"
+    // Borra la sesión (para el botón de Cerrar Sesión en el futuro)
     fun cerrarSesion() {
-        prefs.edit().remove("CORREO_USUARIO").apply()
+        prefs.edit().clear().apply()
     }
 }

@@ -11,6 +11,7 @@ class AuthRepository {
 
     private val tablaUsuarios = SupabaseClient.client.from("Usuarios")
 
+
     // --- 1. LOGIN ---
     suspend fun login(correo: String, contrasena: String): Result<Usuario> {
         return withContext(Dispatchers.IO) {

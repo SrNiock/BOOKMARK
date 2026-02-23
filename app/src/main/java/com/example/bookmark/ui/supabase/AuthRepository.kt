@@ -1,8 +1,8 @@
-package com.example.bookmark.ui.supabase
+package com.example.bookmark.ui.supaBase
 
-
+// Importamos tu cliente (que por lo que veo está en la carpeta con minúscula)
 import com.example.bookmark.ui.supabase.SupabaseClient
-import com.example.bookmark.ui.data.models.Usuario
+import com.example.bookmark.ui.supabase.Usuario
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,6 +32,19 @@ class AuthRepository {
                 }
             } catch (e: Exception) {
                 // Error de red, base de datos caída, etc.
+                Result.failure(e)
+            }
+        }
+    }
+
+    // Ya no hace falta poner toda la ruta larga aquí, solo "Usuario"
+    suspend fun registrar(usuario: Usuario): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // El comando "insert" coge el objeto Usuario y lo guarda en la base de datos
+                tablaUsuarios.insert(usuario)
+                Result.success(Unit)
+            } catch (e: Exception) {
                 Result.failure(e)
             }
         }

@@ -7,7 +7,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.bookmark.data.remote.BookViewModel
 import com.example.bookmark.ui.screens.BooksScreen
-import com.example.bookmark.ui.screens.LoginScreen // <-- Asegúrate de importar esto
+import com.example.bookmark.ui.screens.LoginScreen
+import com.example.bookmark.ui.screens.RegisterScreen
 import com.example.bookmark.ui.screens.SearchScreen
 import com.example.bookmark.ui.screens.UserScreen
 
@@ -19,36 +20,39 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Login, // <--- 1. AHORA EMPIEZA EN LOGIN
+        startDestination = Screen.Login, // <-- Vuelve a arrancar aquí por defecto
         modifier = modifier
     ) {
-
-        // --- PANTALLA DE LOGIN ---
         composable<Screen.Login> {
             LoginScreen(
                 onLoginSuccess = {
-                    // Navegamos a la pantalla principal y destruimos el Login del historial
-                    navController.navigate(Screen.Books) {
-                        popUpTo(Screen.Login) { inclusive = true }
-                    }
+                    navController.navigate(Screen.Books) { popUpTo(Screen.Login) { inclusive = true } }
                 },
                 onNavigateToRegister = {
-                    // Más adelante navegaremos a Screen.Register
+                    navController.navigate(Screen.Register)
                 }
             )
         }
 
-        // --- PANTALLA DE LIBROS ---
-        composable<Screen.Books> {
-            BooksScreen(bookViewModel)
+        composable<Screen.Register> {
+            RegisterScreen(
+                onRegisterSuccess = {
+                    navController.navigate(Screen.Books) { popUpTo(Screen.Login) { inclusive = true } }
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
         }
 
-        // --- PANTALLA DE BÚSQUEDA ---
+        composable<Screen.Books> {
+            BooksScreen(bookViewModel) // o BooksScreen(bookViewModel)
+        }
+
         composable<Screen.Search> {
             SearchScreen(bookViewModel)
         }
 
-        // --- PANTALLA DE PERFIL ---
         composable<Screen.Profile> {
             UserScreen()
         }

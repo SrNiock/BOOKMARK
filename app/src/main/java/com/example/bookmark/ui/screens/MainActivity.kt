@@ -27,7 +27,6 @@ import com.example.bookmark.ui.navigation.Screen
 import com.example.bookmark.ui.navigation.bottomNavItems
 import com.example.bookmark.ui.theme.BOOKMARKTheme
 
-
 class MainActivity : ComponentActivity() {
 
     private val bookViewModel: BookViewModel by viewModels()
@@ -37,27 +36,24 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BOOKMARKTheme {
-
-               CustomScaffold()
+                CustomScaffold(bookViewModel)
             }
         }
     }
 }
 
-
-
 @Composable
-fun CustomScaffold( bookViewModel: BookViewModel) {
+fun CustomScaffold(bookViewModel: BookViewModel) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    // LA MAGIA AQUÍ: Si la ruta es Login, showBottomBar será false
-    val showBottomBar = currentDestination?.hasRoute(Screen.Login::class) == false
+    // Ocultar barra en Login y Register
+    val showBottomBar = currentDestination?.hasRoute(Screen.Login::class) == false &&
+            currentDestination?.hasRoute(Screen.Register::class) == false
 
     Scaffold(
         bottomBar = {
-            // Solo dibujamos la barra si NO estamos en Login
             if (showBottomBar) {
                 NavigationBar{
                     bottomNavItems.forEach{item ->
@@ -86,25 +82,19 @@ fun CustomScaffold( bookViewModel: BookViewModel) {
     ) { innerPadding ->
         NavGraph(
             navController = navController,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            bookViewModel = bookViewModel
         )
     }
 }
 
-
-
-
 @Composable
 fun Greeting(innerPadding: PaddingValues) {
-    Text(
-        text = "Hello name!",
-        modifier = Modifier.padding(innerPadding)
-    )
+    Text(text = "Hello name!", modifier = Modifier.padding(innerPadding))
 }
 
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    BOOKMARKTheme {
-    }
+    BOOKMARKTheme {}
 }

@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface Screen {
     @Serializable data object Login : Screen // <--- NUEVA RUTA DE LOGIN
+    @Serializable data object Register : Screen
     @Serializable data object Books : Screen
     @Serializable data object Search : Screen
     @Serializable data object Profile : Screen

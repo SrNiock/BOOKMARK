@@ -11,8 +11,21 @@ data class Usuario(
     val correoElectronico: String,
     @SerialName("contraseña")
     val contrasena: String,
-    // Bórralo de aquí ---> val perfilPublico: Boolean
     val fotoPerfil: String? = null,
     val fotoBanner: String? = null,
-    val nickname: String
+    val nickname: String,
+    // 👇 AÑADE ESTA LÍNEA 👇
+    val descripcion: String? = null
+)
+
+@Serializable
+data class MiLibro(
+    val id: Int? = null,
+    val correo_usuario: String,
+    val book_key: String,
+    val titulo: String,
+    val autor: String?,
+    val cover_id: Int?,
+    val estado: String, // "deseado", "leyendo", "terminado"
+    val progreso_porcentaje: Int = 0
 )

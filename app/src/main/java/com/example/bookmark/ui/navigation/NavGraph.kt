@@ -5,7 +5,10 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import com.example.bookmark.data.remote.BookViewModel
+import com.example.bookmark.ui.screens.BibliotecaScreen
+import com.example.bookmark.ui.screens.BookDetailScreen
 import com.example.bookmark.ui.screens.BooksScreen
 import com.example.bookmark.ui.screens.LoginScreen
 import com.example.bookmark.ui.screens.RegisterScreen
@@ -19,7 +22,6 @@ fun NavGraph(
     bookViewModel: BookViewModel,
     isLoggedIn: Boolean
 ) {
-    // MAGIA AQUÍ: Decide dónde arrancar basado en si hay sesión
     val startDest = if (isLoggedIn) Screen.Books else Screen.Login
 
     NavHost(
@@ -32,9 +34,7 @@ fun NavGraph(
                 onLoginSuccess = {
                     navController.navigate(Screen.Books) { popUpTo(Screen.Login) { inclusive = true } }
                 },
-                onNavigateToRegister = {
-                    navController.navigate(Screen.Register)
-                }
+                onNavigateToRegister = { navController.navigate(Screen.Register) }
             )
         }
 
@@ -43,22 +43,40 @@ fun NavGraph(
                 onRegisterSuccess = {
                     navController.navigate(Screen.Books) { popUpTo(Screen.Login) { inclusive = true } }
                 },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
         composable<Screen.Books> {
-            BooksScreen(bookViewModel)
+            BooksScreen(
+                viewModel = bookViewModel,
+                onLogout = {
+                    navController.navigate(Screen.Login) { popUpTo(0) { inclusive = true } }
+                }
+            )
         }
 
+        // --- SOLUCIÓN ERROR SEARCH ---
         composable<Screen.Search> {
-            SearchScreen(bookViewModel)
+            SearchScreen(bookViewModel, navController)
+        }
+
+        composable<Screen.Library> {
+            BibliotecaScreen()
         }
 
         composable<Screen.Profile> {
             UserScreen()
+        }
+
+        // --- NUEVA RUTA PARA DETALLES ---
+        composable<Screen.BookDetail> { backStackEntry ->
+            val detail: Screen.BookDetail = backStackEntry.toRoute()
+            BookDetailScreen(
+                bookKey = detail.bookKey,
+                viewModel = bookViewModel,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }

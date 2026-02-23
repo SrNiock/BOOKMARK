@@ -26,11 +26,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -38,9 +41,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.bookmark.data.remote.BookUiState
 import com.example.bookmark.data.remote.BookViewModel
@@ -63,16 +70,17 @@ import kotlin.math.absoluteValue
 import androidx.compose.ui.util.lerp
 
 @Composable
-fun BooksScreen(viewModel: BookViewModel) {
-    val uiState by viewModel.state // Observamos el estado del ViewModel
+// 1. Añadimos el parámetro onLogout aquí para que la pantalla sepa que esto puede pasar
+fun BooksScreen(viewModel: BookViewModel, onLogout: () -> Unit) {
+    val uiState by viewModel.state
 
-    // Contenedor principal con fondo oscuro profundo
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF0F0F0F) // Negro mate
+        color = Color(0xFF0F0F0F)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            NoteReaderTopBar()
+            // 2. ¡AQUÍ ESTÁ LO QUE FALTA! Le pasamos el onLogout a la barra superior
+            NoteReaderTopBar(onLogout = onLogout)
 
             when (uiState) {
                 is BookUiState.Loading -> LoadingView()
@@ -87,11 +95,31 @@ fun BooksScreen(viewModel: BookViewModel) {
 }
 
 @Composable
-fun NoteReaderTopBar() {
+fun NoteReaderTopBar(onLogout: () -> Unit) { // Añadimos este parámetro para avisar al NavGraph
+    // 1. Herramientas
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = remember { com.example.bookmark.ui.utils.SessionManager(context) }
+    val authRepository = remember { com.example.bookmark.ui.supaBase.AuthRepository() }
+    val correoActual = sessionManager.obtenerCorreoSesion() ?: ""
+
+    var fotoPerfilUrl by remember { mutableStateOf<String?>(null) }
+
+    // 🔥 Estado para controlar si el menú está abierto
+    var menuAbierto by remember { mutableStateOf(false) }
+
+    // 2. Cargamos la foto
+    LaunchedEffect(correoActual) {
+        if (correoActual.isNotEmpty()) {
+            authRepository.obtenerUsuario(correoActual).onSuccess { usuario ->
+                fotoPerfilUrl = usuario.fotoPerfil
+            }
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -102,22 +130,57 @@ fun NoteReaderTopBar() {
                 color = Color.White
             )
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Icono de linterna/modo
-            IconButton(onClick = { /* TODO */ }) {
-                Icon(
-                    painter = painterResource(id = android.R.drawable.ic_menu_compass), // Cambiar por tu icono
-                    contentDescription = null,
-                    tint = Color.White
+
+        // Contenedor del Perfil + Menú
+        Box {
+            // La foto de perfil ahora es un botón que abre el menú
+            Surface(
+                onClick = { menuAbierto = true },
+                color = Color.Transparent,
+                shape = CircleShape
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(45.dp)
+                        .clip(CircleShape)
+                        .background(Color.DarkGray),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!fotoPerfilUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = fotoPerfilUrl,
+                            contentDescription = "Mi perfil",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text("U", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // 🔥 El Dropdown Menu
+            DropdownMenu(
+                expanded = menuAbierto,
+                onDismissRequest = { menuAbierto = false }, // Se cierra si tocas fuera
+                modifier = Modifier.background(Color(0xFF1E1E1E)) // Color oscuro a juego
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Cerrar Sesión", color = Color.White) },
+                    onClick = {
+                        menuAbierto = false
+                        sessionManager.cerrarSesion() // 1. Borra el correo del móvil
+                        onLogout() // 2. Avisa para navegar al Login
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.ExitToApp,
+                            contentDescription = null,
+                            tint = Color.Red
+                        )
+                    }
                 )
             }
-            // Avatar de usuario
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.Gray)
-            )
         }
     }
 }

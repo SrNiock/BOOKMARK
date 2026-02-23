@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,23 +21,57 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-// IMPORTANTE: Este es el import de la librería que acabamos de añadir
 import coil.compose.AsyncImage
+import com.example.bookmark.ui.supaBase.AuthRepository
+import com.example.bookmark.ui.utils.SessionManager
+import kotlinx.coroutines.launch
+import kotlin.onFailure
 
 @Composable
 fun UserScreen() {
     val scrollState = rememberScrollState()
 
-    // --- ESTADOS DE LA PANTALLA ---
-    // Aquí guardaremos temporalmente la ruta de la foto elegida para mostrarla
-    var bannerUri by remember { mutableStateOf<Uri?>(null) }
-    var profileUri by remember { mutableStateOf<Uri?>(null) }
+    // --- HERRAMIENTAS ---
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
+    val authRepository = remember { AuthRepository() }
+    val correoActual = sessionManager.obtenerCorreoSesion() ?: ""
+    val coroutineScope = rememberCoroutineScope()
 
-    // Aquí guardaremos el Nickname (de momento ponemos uno de prueba, luego lo traeremos de la BD)
+    // --- ESTADOS DE LA PANTALLA ---
+    var profileUrl by remember { mutableStateOf<String?>(null) }
+    var bannerUrl by remember { mutableStateOf<String?>(null) }
     var nicknameUsuario by remember { mutableStateOf("Cargando...") }
+
+    // 🔥 Nuevos estados para la descripción
+    var descripcionUsuario by remember { mutableStateOf("") }
+    var editandoDescripcion by remember { mutableStateOf(false) }
+
+    var estaSubiendoPerfil by remember { mutableStateOf(false) }
+    var estaSubiendoBanner by remember { mutableStateOf(false) }
+
+    // --- CARGA INICIAL (Leer BD al entrar) ---
+    LaunchedEffect(correoActual) {
+        if (correoActual.isNotEmpty()) {
+            val resultado = authRepository.obtenerUsuario(correoActual)
+
+            resultado.onSuccess { usuario ->
+                nicknameUsuario = usuario.nickname
+                profileUrl = usuario.fotoPerfil
+                bannerUrl = usuario.fotoBanner
+                // 🔥 Cargamos la descripción (si es nula, ponemos texto vacío)
+                descripcionUsuario = usuario.descripcion ?: ""
+            }.onFailure {
+                nicknameUsuario = "Error de conexión"
+            }
+        } else {
+            nicknameUsuario = "Usuario no identificado"
+        }
+    }
 
     // --- LANZADORES DE LA GALERÍA ---
     // 1. Para el Banner
@@ -43,9 +79,24 @@ fun UserScreen() {
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            bannerUri = uri
-            // TODO: Más adelante, aquí subiremos la foto a Supabase Storage
-            println("Banner seleccionado: $uri")
+            coroutineScope.launch {
+                estaSubiendoBanner = true
+                try {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null) {
+                        val nombreArchivo = "banner_$correoActual.jpg"
+                        authRepository.subirImagenStorage(nombreArchivo, bytes).onSuccess { urlSubida ->
+                            authRepository.actualizarFotoTabla(correoActual, "fotoBanner", urlSubida).onSuccess {
+                                bannerUrl = urlSubida
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    println("❌ ERROR INTERNO BANNER: ${e.message}")
+                } finally {
+                    estaSubiendoBanner = false
+                }
+            }
         }
     }
 
@@ -54,9 +105,24 @@ fun UserScreen() {
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            profileUri = uri
-            // TODO: Más adelante, aquí subiremos la foto a Supabase Storage
-            println("Perfil seleccionado: $uri")
+            coroutineScope.launch {
+                estaSubiendoPerfil = true
+                try {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null) {
+                        val nombreArchivo = "perfil_$correoActual.jpg"
+                        authRepository.subirImagenStorage(nombreArchivo, bytes).onSuccess { urlSubida ->
+                            authRepository.actualizarFotoTabla(correoActual, "fotoPerfil", urlSubida).onSuccess {
+                                profileUrl = urlSubida
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    println("❌ ERROR INTERNO PERFIL: ${e.message}")
+                } finally {
+                    estaSubiendoPerfil = false
+                }
+            }
         }
     }
 
@@ -64,13 +130,6 @@ fun UserScreen() {
     val backgroundColor = Color(0xFF121212)
     val surfaceColor = Color(0xFF1E1E1E)
     val accentColor = Color(0xFF00E5FF)
-
-    // Simulamos que cargamos el nickname desde la base de datos
-    LaunchedEffect(Unit) {
-        // TODO: Llamaremos a authRepository.obtenerUsuario()
-        // De momento, lo fingimos:
-        nicknameUsuario = "PauLibros" // El nickname de tu captura
-    }
 
     Column(
         modifier = Modifier
@@ -89,23 +148,25 @@ fun UserScreen() {
                     .height(160.dp)
                     .background(Color.DarkGray)
                     .clickable {
-                        // ¡MAGIA! Esto abre la galería pidiendo solo imágenes
                         bannerPickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (bannerUri != null) {
-                    // Si hay foto, la pintamos ocupando todo el espacio
+                if (!bannerUrl.isNullOrEmpty()) {
                     AsyncImage(
-                        model = bannerUri,
+                        model = bannerUrl,
                         contentDescription = "Banner del usuario",
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop // Recorta la foto para que encaje perfecto
+                        contentScale = ContentScale.Crop
                     )
                 } else {
                     Text("Toca para añadir un Banner", color = Color.White)
+                }
+
+                if (estaSubiendoBanner) {
+                    CircularProgressIndicator(color = accentColor)
                 }
             }
 
@@ -119,16 +180,15 @@ fun UserScreen() {
                     .background(Color.Gray)
                     .border(3.dp, accentColor, CircleShape)
                     .clickable {
-                        // Abre la galería para el perfil
                         profilePickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (profileUri != null) {
+                if (!profileUrl.isNullOrEmpty()) {
                     AsyncImage(
-                        model = profileUri,
+                        model = profileUrl,
                         contentDescription = "Foto de perfil",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -136,25 +196,54 @@ fun UserScreen() {
                 } else {
                     Text("Foto", color = Color.White)
                 }
+
+                if (estaSubiendoPerfil) {
+                    CircularProgressIndicator(color = accentColor)
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // --- SECCIÓN 2: INFO DEL USUARIO ---
-        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth()) {
             Text(
-                text = nicknameUsuario, // Usamos la variable que se actualizará con la BD
+                text = nicknameUsuario,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
-            Text(
-                text = "Sci-Fi Enthusiast • Night Owl • Always looking for the next great space opera.",
-                fontSize = 14.sp,
-                color = Color.LightGray,
-                modifier = Modifier.padding(top = 8.dp)
-            )
+
+            // 🔥 Lógica de la Descripción Editable
+            if (editandoDescripcion) {
+                OutlinedTextField(
+                    value = descripcionUsuario,
+                    onValueChange = { descripcionUsuario = it },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
+                    placeholder = { Text("Escribe algo sobre ti...") },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            editandoDescripcion = false // Salimos del modo edición
+                            // Guardamos en Supabase reusando la función de actualizar celdas
+                            coroutineScope.launch {
+                                authRepository.actualizarFotoTabla(correoActual, "descripcion", descripcionUsuario)
+                            }
+                        }) {
+                            Icon(Icons.Filled.Check, contentDescription = "Guardar", tint = accentColor)
+                        }
+                    }
+                )
+            } else {
+                Text(
+                    text = if (descripcionUsuario.isEmpty()) "Añade una descripción sobre ti... ✏️" else descripcionUsuario,
+                    fontSize = 14.sp,
+                    color = Color.LightGray,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .clickable { editandoDescripcion = true } // Al tocar, cambia a modo edición
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))

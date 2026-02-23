@@ -6,6 +6,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.bookmark.ui.screens.BooksScreen
+import com.example.bookmark.ui.screens.LoginScreen // <-- Asegúrate de importar esto
 import com.example.bookmark.ui.screens.SearchScreen
 import com.example.bookmark.ui.screens.UserScreen
 
@@ -14,12 +15,26 @@ fun NavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
-    // El NavHost es el contenedor que intercambia las pantallas
     NavHost(
         navController = navController,
-        startDestination = Screen.Books, // Definimos la pantalla de inicio
+        startDestination = Screen.Login, // <--- 1. AHORA EMPIEZA EN LOGIN
         modifier = modifier
     ) {
+
+        // --- PANTALLA DE LOGIN ---
+        composable<Screen.Login> {
+            LoginScreen(
+                onLoginSuccess = {
+                    // Navegamos a la pantalla principal y destruimos el Login del historial
+                    navController.navigate(Screen.Books) {
+                        popUpTo(Screen.Login) { inclusive = true }
+                    }
+                },
+                onNavigateToRegister = {
+                    // Más adelante navegaremos a Screen.Register
+                }
+            )
+        }
 
         // --- PANTALLA DE LIBROS ---
         composable<Screen.Books> {

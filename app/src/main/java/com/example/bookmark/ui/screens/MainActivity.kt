@@ -23,6 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.bookmark.data.remote.BookViewModel
 import com.example.bookmark.ui.navigation.NavGraph
+import com.example.bookmark.ui.navigation.Screen
 import com.example.bookmark.ui.navigation.bottomNavItems
 import com.example.bookmark.ui.theme.BOOKMARKTheme
 
@@ -51,43 +52,44 @@ fun CustomScaffold( bookViewModel: BookViewModel) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
+    // LA MAGIA AQUÍ: Si la ruta es Login, showBottomBar será false
+    val showBottomBar = currentDestination?.hasRoute(Screen.Login::class) == false
+
     Scaffold(
         bottomBar = {
-           NavigationBar{
-               bottomNavItems.forEach{item ->
-                   val isSelected = currentDestination?.hierarchy?.any{
-                       it.hasRoute(item.route::class)
-                   } == true
+            // Solo dibujamos la barra si NO estamos en Login
+            if (showBottomBar) {
+                NavigationBar{
+                    bottomNavItems.forEach{item ->
+                        val isSelected = currentDestination?.hierarchy?.any{
+                            it.hasRoute(item.route::class)
+                        } == true
 
-                   NavigationBarItem(
-                       selected = isSelected,
-                       onClick = {
-                           navController.navigate(item.route){
-                               popUpTo(navController.graph.findStartDestination().id){
-                                   saveState = true
-                               }
-                               launchSingleTop=true
-                               restoreState = true
-                           }
-                       },
-                       icon = {Icon(item.icon, contentDescription = item.name)},
-                       label = {Text(item.name)}
-                   )
-
-
-               }
-
-           }
+                        NavigationBarItem(
+                            selected = isSelected,
+                            onClick = {
+                                navController.navigate(item.route){
+                                    popUpTo(navController.graph.findStartDestination().id){
+                                        saveState = true
+                                    }
+                                    launchSingleTop=true
+                                    restoreState = true
+                                }
+                            },
+                            icon = {Icon(item.icon, contentDescription = item.name)},
+                            label = {Text(item.name)}
+                        )
+                    }
+                }
+            }
         }
-
-
     ) { innerPadding ->
-        NavGraph(navController = navController,
-            modifier = Modifier.padding(innerPadding),bookViewModel
+        NavGraph(
+            navController = navController,
+            modifier = Modifier.padding(innerPadding)
         )
     }
 }
-
 
 
 

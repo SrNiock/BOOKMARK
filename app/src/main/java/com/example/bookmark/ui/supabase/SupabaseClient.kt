@@ -1,8 +1,9 @@
-package com.example.bookmark.ui.supabase
+package com.example.bookmark.ui.supaBase
 
 import com.example.bookmark.BuildConfig
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
 
 object SupabaseClient {
 
@@ -12,6 +13,7 @@ object SupabaseClient {
         supabaseKey = BuildConfig.SUPABASE_KEY
     ) {
         install(Postgrest)
+        install(Storage)
         // install(Auth) // Si usas autenticación
     }
 }

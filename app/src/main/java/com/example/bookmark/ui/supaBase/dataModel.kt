@@ -1,4 +1,4 @@
-package com.example.bookmark.ui.supabase
+package com.example.bookmark.ui.supaBase
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

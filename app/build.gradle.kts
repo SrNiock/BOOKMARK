@@ -114,4 +114,6 @@ dependencies {
     implementation(platform("io.github.jan-tennert.supabase:bom:3.0.0")) // Versión recomendada
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.ktor:ktor-client-android:3.0.0") // Necesario para la conexión
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.github.jan-tennert.supabase:storage-kt:3.0.0")
 }

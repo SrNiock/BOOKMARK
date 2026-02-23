@@ -14,7 +14,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.bookmark.ui.supaBase.AuthRepository
-import com.example.bookmark.ui.supabase.Usuario
+import com.example.bookmark.ui.supaBase.Usuario
 import kotlinx.coroutines.launch
 
 @Composable

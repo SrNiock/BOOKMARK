@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.bookmark.data.remote.BookViewModel
 import com.example.bookmark.ui.screens.BooksScreen
 import com.example.bookmark.ui.screens.LoginScreen // <-- Asegúrate de importar esto
 import com.example.bookmark.ui.screens.SearchScreen
@@ -13,7 +14,8 @@ import com.example.bookmark.ui.screens.UserScreen
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bookViewModel: BookViewModel
 ) {
     NavHost(
         navController = navController,
@@ -38,12 +40,12 @@ fun NavGraph(
 
         // --- PANTALLA DE LIBROS ---
         composable<Screen.Books> {
-            BooksScreen()
+            BooksScreen(bookViewModel)
         }
 
         // --- PANTALLA DE BÚSQUEDA ---
         composable<Screen.Search> {
-            SearchScreen()
+            SearchScreen(bookViewModel)
         }
 
         // --- PANTALLA DE PERFIL ---

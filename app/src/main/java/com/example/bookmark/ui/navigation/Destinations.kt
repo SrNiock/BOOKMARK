@@ -9,9 +9,12 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 sealed interface Screen{
-    @Serializable data object Books : Screen
-    @Serializable data object Search : Screen
-    @Serializable data object Profile : Screen
+    @Serializable
+    data object Books : Screen
+    @Serializable
+    data object Search : Screen
+    @Serializable
+    data object Profile : Screen
 
 }
 

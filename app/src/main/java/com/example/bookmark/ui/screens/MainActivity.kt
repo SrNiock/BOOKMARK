@@ -26,6 +26,7 @@ import com.example.bookmark.ui.navigation.NavGraph
 import com.example.bookmark.ui.navigation.bottomNavItems
 import com.example.bookmark.ui.theme.BOOKMARKTheme
 
+
 class MainActivity : ComponentActivity() {
 
     private val bookViewModel: BookViewModel by viewModels()
@@ -35,11 +36,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BOOKMARKTheme {
-               CustomScaffold(bookViewModel)
+
+               CustomScaffold()
             }
         }
     }
 }
+
 
 
 @Composable

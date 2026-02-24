@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -286,21 +287,52 @@ fun UserScreen() {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 👇 NUEVO: Pintamos los libros si existen, o el cuadro vacío si no.
             repeat(4) { index ->
                 val libro = listaFavoritos.getOrNull(index)
 
                 if (libro != null) {
-                    AsyncImage(
-                        model = "https://covers.openlibrary.org/b/id/${libro.cover_id}-L.jpg",
-                        contentDescription = libro.titulo,
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(0.7f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surface),
+                    // Creamos un estado independiente para el menú de cada libro
+                    var mostrarMenuFav by remember { mutableStateOf(false) }
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        AsyncImage(
+                            model = "https://covers.openlibrary.org/b/id/${libro.cover_id}-L.jpg",
+                            contentDescription = libro.titulo,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(0.7f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .combinedClickable(
+                                    onClick = { /* Aquí podrías navegar a los detalles del libro */ },
+                                    onLongClick = { mostrarMenuFav = true } // Al mantener, mostramos el menú
+                                ),
                         contentScale = ContentScale.Crop
-                    )
+                        )
+
+                        // El menú que sale al mantener pulsado
+                        DropdownMenu(
+                            expanded = mostrarMenuFav,
+                            onDismissRequest = { mostrarMenuFav = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Eliminar de favoritos", color = Color.Red) },
+                                onClick = {
+                                    mostrarMenuFav = false
+                                    // Eliminamos de la base de datos
+                                    coroutineScope.launch {
+                                        libro.id?.let { idLibro ->
+                                            authRepository.eliminarDeFavoritos(idActual, idLibro).onSuccess {
+                                                // Si se elimina bien de Supabase, lo quitamos de la lista local
+                                                // Esto provocará que la pantalla se redibuje y aparezca el hueco vacío
+                                                listaFavoritos = listaFavoritos.filter { it.id != idLibro }
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
                 } else {
                     BookPlaceholderBox(modifier = Modifier.weight(1f))
                 }

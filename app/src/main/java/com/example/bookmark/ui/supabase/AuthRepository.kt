@@ -154,25 +154,15 @@ class AuthRepository {
         }
     }
 
-    // --- 9. BIBLIOTECA: ELIMINAR LIBRO ---
-    suspend fun eliminarLibro(idLibro: Int): Result<Unit> {
+    suspend fun eliminarDeFavoritos(idUsuario: Long, idLibro: Int): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                tablaBiblioteca.delete {
-                    filter { eq("id", idLibro) }
+                client.from("favoritos").delete {
+                    filter {
+                        eq("usuario_id", idUsuario)
+                        eq("libro_id", idLibro)
+                    }
                 }
-                Result.success(Unit)
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
-        }
-    }
-
-    suspend fun agregarAFavoritos(idUsuario: Long, idLibro: Int): Result<Unit> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val nuevoFav = Favorito(usuario_id = idUsuario, libro_id = idLibro)
-                tablaFavoritos.insert(nuevoFav)
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
@@ -183,11 +173,38 @@ class AuthRepository {
     suspend fun contarFavoritos(idUsuario: Long): Result<Long> {
         return withContext(Dispatchers.IO) {
             try {
-                // Contamos cuántas filas hay para este usuario en la tabla favoritos
-                val conteo = tablaFavoritos.select {
-                    filter { eq("usuario_id", idUsuario) }
-                }.decodeList<Favorito>().size.toLong()
+                val conteo = client.from("favoritos")
+                    .select { filter { eq("usuario_id", idUsuario) } }
+                    .decodeList<Favorito>()
+                    .size.toLong()
                 Result.success(conteo)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    // 2. Añade un libro a la tabla favoritos
+    suspend fun agregarAFavoritos(idUsuario: Long, idLibro: Int): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val nuevoFav = Favorito(usuario_id = idUsuario, libro_id = idLibro)
+                client.from("favoritos").insert(nuevoFav)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    // 3. Elimina un libro de tu biblioteca (mislibros)
+    suspend fun eliminarLibroDeBiblioteca(idLibro: Int): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                client.from("mislibros").delete {
+                    filter { eq("id", idLibro) }
+                }
+                Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
             }

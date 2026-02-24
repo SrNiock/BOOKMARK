@@ -82,11 +82,14 @@ fun NavGraph(
 
         // --- RUTA: DETALLES DEL LIBRO ---
         composable<Screen.BookDetail> { backStackEntry ->
-            // Extraemos la información de la ruta (incluyendo el bookKey)
+            // Extraemos la información de la ruta
             val detail: Screen.BookDetail = backStackEntry.toRoute()
 
+            // 👇 NUEVO: Le quitamos la codificación (transforma los %2F de nuevo en barras /)
+            val keyLimpia = android.net.Uri.decode(detail.bookKey)
+
             BookDetailScreen(
-                bookKey = detail.bookKey, // Usamos la key para cargar el libro específico
+                bookKey = keyLimpia, // Usamos la key limpia para buscar en el ViewModel
                 viewModel = bookViewModel,
                 onBack = { navController.popBackStack() } // Botón para volver atrás
             )

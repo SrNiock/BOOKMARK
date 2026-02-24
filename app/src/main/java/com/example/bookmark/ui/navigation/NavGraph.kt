@@ -10,6 +10,7 @@ import com.example.bookmark.data.remote.BookViewModel
 import com.example.bookmark.ui.screens.BibliotecaScreen
 import com.example.bookmark.ui.screens.BookDetailScreen
 import com.example.bookmark.ui.screens.BooksScreen
+import com.example.bookmark.ui.screens.ExternalUserScreen
 import com.example.bookmark.ui.screens.LoginScreen
 import com.example.bookmark.ui.screens.RegisterScreen
 import com.example.bookmark.ui.screens.SearchScreen
@@ -56,8 +57,8 @@ fun NavGraph(
         composable<Screen.Books> {
             BooksScreen(
                 viewModel = bookViewModel,
+                navController = navController, // 👈 AÑADE ESTA LÍNEA AQUÍ
                 onLogout = {
-                    // Al cerrar sesión, volvemos al Login y limpiamos toda la pila de navegación
                     navController.navigate(Screen.Login) { popUpTo(0) { inclusive = true } }
                 }
             )
@@ -92,6 +93,15 @@ fun NavGraph(
                 bookKey = keyLimpia, // Usamos la key limpia para buscar en el ViewModel
                 viewModel = bookViewModel,
                 onBack = { navController.popBackStack() } // Botón para volver atrás
+            )
+        }
+        // --- RUTA: PERFIL EXTERNO DE OTRO USUARIO ---
+        composable<Screen.ExternalProfile> { backStackEntry ->
+            val externalProfile: Screen.ExternalProfile = backStackEntry.toRoute()
+
+            ExternalUserScreen(
+                userId = externalProfile.userId,
+                navController = navController
             )
         }
     }

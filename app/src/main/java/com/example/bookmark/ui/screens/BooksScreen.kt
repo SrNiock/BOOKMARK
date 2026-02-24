@@ -1,8 +1,9 @@
 package com.example.bookmark.ui.screens
 
+import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,11 +25,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,7 +35,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,24 +52,42 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.bookmark.data.remote.BookUiState
 import com.example.bookmark.data.remote.BookViewModel
 import com.example.bookmark.data.remote.dto.Book
+import com.example.bookmark.ui.navigation.Screen
+import com.example.bookmark.ui.supaBase.AuthRepository
+import com.example.bookmark.ui.supaBase.PublicacionFeed
+import com.example.bookmark.ui.utils.SessionManager
 import kotlin.math.absoluteValue
-import androidx.compose.ui.util.lerp
 
+// Necesitamos pasarle el navController para que los clics del Feed funcionen
 @Composable
-fun BooksScreen(viewModel: BookViewModel, onLogout: () -> Unit) {
+fun BooksScreen(viewModel: BookViewModel, navController: NavHostController, onLogout: () -> Unit) {
     val uiState by viewModel.state
+
+    // 👇 ESTADOS PARA EL FEED SOCIAL
+    val authRepository = remember { AuthRepository() }
+    var publicaciones by remember { mutableStateOf<List<PublicacionFeed>>(emptyList()) }
+    var cargandoFeed by remember { mutableStateOf(true) }
+
+    // Descargamos el feed al abrir la app
+    LaunchedEffect(Unit) {
+        authRepository.obtenerFeedPublicaciones().onSuccess {
+            publicaciones = it
+        }
+        cargandoFeed = false
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -81,11 +97,12 @@ fun BooksScreen(viewModel: BookViewModel, onLogout: () -> Unit) {
             NoteReaderTopBar(onLogout = onLogout)
 
             when (uiState) {
-                is BookUiState.Loading -> LoadingView() // Asegúrate de tener estas funciones o importarlas
-                is BookUiState.Error -> ErrorView((uiState as BookUiState.Error).message)
+                is BookUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                is BookUiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Error al cargar libros", color = Color.Red) }
                 is BookUiState.Success -> {
                     val books = (uiState as BookUiState.Success).books
-                    BookContent(books)
+                    // Le pasamos los libros, el feed y el navController a la función que dibuja todo
+                    BookContent(books, publicaciones, cargandoFeed, navController)
                 }
             }
         }
@@ -94,9 +111,9 @@ fun BooksScreen(viewModel: BookViewModel, onLogout: () -> Unit) {
 
 @Composable
 fun NoteReaderTopBar(onLogout: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val sessionManager = remember { com.example.bookmark.ui.utils.SessionManager(context) }
-    val authRepository = remember { com.example.bookmark.ui.supaBase.AuthRepository() }
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
+    val authRepository = remember { AuthRepository() }
     val correoActual = sessionManager.obtenerCorreoSesion() ?: ""
 
     var fotoPerfilUrl by remember { mutableStateOf<String?>(null) }
@@ -121,7 +138,7 @@ fun NoteReaderTopBar(onLogout: () -> Unit) {
             text = "BookMark",
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground // Blanco del tema
+                color = MaterialTheme.colorScheme.onBackground
             )
         )
 
@@ -154,7 +171,7 @@ fun NoteReaderTopBar(onLogout: () -> Unit) {
             DropdownMenu(
                 expanded = menuAbierto,
                 onDismissRequest = { menuAbierto = false },
-                modifier = Modifier.background(MaterialTheme.colorScheme.surface) // Gris oscuro
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
             ) {
                 DropdownMenuItem(
                     text = { Text("Cerrar Sesión", color = MaterialTheme.colorScheme.onBackground) },
@@ -164,11 +181,7 @@ fun NoteReaderTopBar(onLogout: () -> Unit) {
                         onLogout()
                     },
                     leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.ExitToApp,
-                            contentDescription = null,
-                            tint = Color.Red // Lo mantenemos rojo para indicar peligro/salida
-                        )
+                        Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.Red)
                     }
                 )
             }
@@ -177,21 +190,48 @@ fun NoteReaderTopBar(onLogout: () -> Unit) {
 }
 
 @Composable
-fun BookContent(books: List<Book>) {
+fun BookContent(
+    books: List<Book>,
+    publicaciones: List<PublicacionFeed>,
+    cargandoFeed: Boolean,
+    navController: NavHostController
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
-        if (books.isNotEmpty()) {
-            item {
-                ContinueReadingSection(books.first())
-            }
-        }
-
+        // --- PARTE 1: EL CARRUSEL ---
         item {
             SectionHeader(title = "For you")
             Spacer(modifier = Modifier.height(16.dp))
-            BookCarouselRow(books = books.drop(1))
+            BookCarouselRow(books = books) // Le pasamos todos los libros, sin hacer drop(1)
+        }
+
+        // --- PARTE 2: EL FEED SOCIAL ---
+        item {
+            Spacer(modifier = Modifier.height(24.dp))
+            SectionHeader(title = "Comunidad")
+        }
+
+        if (cargandoFeed) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        } else if (publicaciones.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Text("Aún no hay reseñas. ¡Termina un libro para ser el primero!", color = Color.Gray, textAlign = TextAlign.Center)
+                }
+            }
+        } else {
+            // Pintamos las reseñas una debajo de otra
+            items(publicaciones) { publicacion ->
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    PublicacionCard(publicacion = publicacion, navController = navController)
+                }
+            }
         }
     }
 }
@@ -224,7 +264,8 @@ fun BookCarouselRow(books: List<Book>) {
                         val distanceFromCenter = (viewportCenter - itemCenter).absoluteValue
                         val normalizedDistance = (distanceFromCenter / (viewportCenter * 0.8f)).coerceIn(0f, 1f)
 
-                        lerp(start = 1f, stop = 0.85f, fraction = normalizedDistance)
+                        // Pequeño truco matemático para escalar
+                        1f - (normalizedDistance * 0.15f)
                     } else {
                         0.85f
                     }
@@ -232,7 +273,7 @@ fun BookCarouselRow(books: List<Book>) {
             }
 
             val alphaScale = ((1f - scale) / 0.15f).coerceIn(0f, 1f)
-            val alpha = lerp(start = 1f, stop = 0.6f, fraction = alphaScale)
+            val alpha = 1f - (alphaScale * 0.4f)
 
             BookHorizontalItem(
                 book = book,
@@ -240,75 +281,6 @@ fun BookCarouselRow(books: List<Book>) {
                 alpha = alpha,
                 itemWidth = itemWidth
             )
-        }
-    }
-}
-
-@Composable
-fun ContinueReadingSection(book: Book) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // Gris oscuro
-        shape = RoundedCornerShape(24.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BookCover(
-                coverId = book.coverId,
-                modifier = Modifier
-                    .size(width = 100.dp, height = 150.dp)
-                    .clip(RoundedCornerShape(12.dp))
-            )
-
-            Column(
-                modifier = Modifier
-                    .padding(start = 16.dp)
-                    .weight(1f)
-            ) {
-                Text(
-                    text = book.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 2
-                )
-                Text(
-                    text = "by ${book.authorNames?.firstOrNull() ?: "Unknown"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                LinearProgressIndicator(
-                    progress = { 0.78f },
-                    modifier = Modifier.fillMaxWidth().clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary, // BARRA NARANJA
-                    trackColor = Color.DarkGray
-                )
-
-                Text(
-                    text = "78% • 20 min left",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.LightGray,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                Button(
-                    onClick = { /* TODO */ },
-                    modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary, // BOTÓN NARANJA
-                        contentColor = MaterialTheme.colorScheme.onPrimary  // TEXTO NEGRO
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Continue reading", fontWeight = FontWeight.Bold)
-                }
-            }
         }
     }
 }
@@ -379,11 +351,100 @@ fun SectionHeader(title: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
-        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground)
+        Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+    }
+}
+
+// --- COMPONENTE DEL FEED SOCIAL ---
+@Composable
+fun PublicacionCard(publicacion: PublicacionFeed, navController: NavHostController) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            // 1. CABECERA: Autor de la reseña
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().clickable {
+                    navController.navigate(Screen.ExternalProfile(userId = publicacion.usuario_id))
+                }
+            ) {
+                AsyncImage(
+                    model = publicacion.usuario?.fotoPerfil,
+                    contentDescription = "Foto de perfil",
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.DarkGray),
+                    contentScale = ContentScale.Crop,
+                    error = painterResource(id = android.R.drawable.ic_menu_myplaces)
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(text = "@${publicacion.usuario?.nickname ?: "Usuario Desconocido"}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(text = "ha terminado de leer:", fontSize = 12.sp, color = Color.Gray)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 2. CONTENIDO: El Libro
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.2f))
+                    .clickable {
+                        val rutaSegura = Uri.encode(publicacion.book_key)
+                        navController.navigate(Screen.BookDetail(bookKey = rutaSegura))
+                    }
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AsyncImage(
+                    model = "https://covers.openlibrary.org/b/id/${publicacion.cover_id}-M.jpg",
+                    contentDescription = "Portada",
+                    modifier = Modifier.size(50.dp, 75.dp).clip(RoundedCornerShape(4.dp)).background(Color.DarkGray),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = publicacion.titulo_libro, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+
+                    Row(modifier = Modifier.padding(top = 4.dp)) {
+                        for (i in 1..5) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = if (i <= publicacion.calificacion) Color(0xFFFFD700) else Color.DarkGray,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3. LA RESEÑA
+            if (publicacion.texto.isNotEmpty()) {
+                Text(
+                    text = "\"${publicacion.texto}\"",
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+            }
+        }
     }
 }

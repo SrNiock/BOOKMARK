@@ -3,6 +3,7 @@ package com.example.bookmark.ui.screens
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,6 +13,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -28,10 +31,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.example.bookmark.ui.navigation.Screen // Importante para la navegación segura
+import com.example.bookmark.ui.navigation.Screen
 import com.example.bookmark.ui.supaBase.AuthRepository
 import com.example.bookmark.ui.utils.SessionManager
 import com.example.bookmark.ui.supaBase.MiLibro
+import com.example.bookmark.ui.supaBase.Publicacion
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,9 +55,15 @@ fun BibliotecaScreen(navController: NavHostController) {
     var listaLibros by remember { mutableStateOf<List<MiLibro>>(emptyList()) }
     var cargando by remember { mutableStateOf(true) }
 
+    // Estados para el progreso
     var mostrarDialogo by remember { mutableStateOf(false) }
     var libroSeleccionado by remember { mutableStateOf<MiLibro?>(null) }
     var paginaInput by remember { mutableStateOf("") }
+
+    // 👇 ESTADOS NUEVOS PARA LA RESEÑA
+    var mostrarDialogoResena by remember { mutableStateOf(false) }
+    var textoResena by remember { mutableStateOf("") }
+    var calificacionResena by remember { mutableStateOf(5) } // Por defecto 5 estrellas
 
     // Función para refrescar datos
     fun cargarDatos() {
@@ -72,7 +82,7 @@ fun BibliotecaScreen(navController: NavHostController) {
 
     LaunchedEffect(tabIndex) { cargarDatos() }
 
-    // --- ACCIONES DEL MENÚ DESPLEGABLE ---
+    // --- ACCIONES DEL MENÚ ---
     val onFavorito: (MiLibro) -> Unit = { libro ->
         if (libro.id != null) {
             coroutineScope.launch {
@@ -94,27 +104,24 @@ fun BibliotecaScreen(navController: NavHostController) {
         if (libro.id != null) {
             coroutineScope.launch {
                 authRepository.eliminarLibroDeBiblioteca(libro.id).onSuccess {
-                    cargarDatos() // Refrescamos la lista
+                    cargarDatos()
                     snackbarHostState.showSnackbar("Libro eliminado de tu biblioteca")
                 }
             }
         }
     }
 
-    // Acción: Mover de Pendientes a Leyendo
     val onMoverALeyendo: (MiLibro) -> Unit = { libro ->
         coroutineScope.launch {
             val libroActualizado = libro.copy(estado = "leyendo")
             authRepository.actualizarLibroEnBiblioteca(libroActualizado).onSuccess {
-                cargarDatos() // Refrescamos para que desaparezca de pendientes
+                cargarDatos()
                 snackbarHostState.showSnackbar("Movido a Leyendo")
-            }.onFailure {
-                snackbarHostState.showSnackbar("Error al mover el libro")
             }
         }
     }
 
-    // --- DIÁLOGO DE ACTUALIZAR PÁGINAS (Local) ---
+    // --- DIÁLOGO 1: ACTUALIZAR PÁGINAS ---
     if (mostrarDialogo && libroSeleccionado != null) {
         AlertDialog(
             onDismissRequest = { mostrarDialogo = false },
@@ -133,19 +140,107 @@ fun BibliotecaScreen(navController: NavHostController) {
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    val paginasLeidas = paginaInput.toIntOrNull() ?: 0
-                    val nuevoPorcentaje = (paginasLeidas * 100) / 300
-                    listaLibros = listaLibros.map {
-                        if (it.id == libroSeleccionado!!.id) {
-                            it.copy(progreso_porcentaje = if(nuevoPorcentaje > 100) 100 else nuevoPorcentaje)
-                        } else it
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                    // 👇 BOTÓN NUEVO: Salta a la ventana de reseña
+                    TextButton(onClick = {
+                        mostrarDialogo = false
+                        mostrarDialogoResena = true // Abrimos el nuevo diálogo
+                    }) {
+                        Text("¡Ya lo he terminado!", color = MaterialTheme.colorScheme.primary)
                     }
-                    mostrarDialogo = false
-                }) { Text("Calcular") }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Button(onClick = {
+                        val paginasLeidas = paginaInput.toIntOrNull() ?: 0
+                        val nuevoPorcentaje = (paginasLeidas * 100) / 300
+                        listaLibros = listaLibros.map {
+                            if (it.id == libroSeleccionado!!.id) {
+                                it.copy(progreso_porcentaje = if(nuevoPorcentaje > 100) 100 else nuevoPorcentaje)
+                            } else it
+                        }
+                        mostrarDialogo = false
+                    }) { Text("Calcular") }
+                }
             },
             dismissButton = {
                 TextButton(onClick = { mostrarDialogo = false }) { Text("Cancelar", color = Color.Gray) }
+            }
+        )
+    }
+
+    // --- DIÁLOGO 2: ESCRIBIR RESEÑA AL TERMINAR ---
+    if (mostrarDialogoResena && libroSeleccionado != null) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoResena = false },
+            title = { Text("Reseña: ${libroSeleccionado!!.titulo}", color = Color.White) },
+            containerColor = Color(0xFF1E1E1E),
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Selector de Estrellas
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        for (i in 1..5) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Estrella $i",
+                                // Amarillo si está seleccionada, gris oscuro si no
+                                tint = if (i <= calificacionResena) Color(0xFFFFD700) else Color.DarkGray,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .padding(4.dp)
+                                    .clickable { calificacionResena = i }
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = textoResena,
+                        onValueChange = { textoResena = it },
+                        label = { Text("¿Qué te ha parecido el libro?", color = Color.Gray) },
+                        modifier = Modifier.fillMaxWidth().height(140.dp),
+                        maxLines = 5,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    coroutineScope.launch {
+                        // 1. Crear y subir la publicación a Supabase
+                        val nuevaPublicacion = Publicacion(
+                            usuario_id = idActual,
+                            book_key = libroSeleccionado!!.bookKey,
+                            titulo_libro = libroSeleccionado!!.titulo,
+                            cover_id = libroSeleccionado!!.cover_id,
+                            texto = textoResena,
+                            calificacion = calificacionResena
+                        )
+                        authRepository.crearPublicacion(nuevaPublicacion)
+
+                        // 2. Mover el libro a "terminados" y ponerle el 100%
+                        val libroActualizado = libroSeleccionado!!.copy(
+                            estado = "terminado",
+                            progreso_porcentaje = 100
+                        )
+                        authRepository.actualizarLibroEnBiblioteca(libroActualizado)
+
+                        // 3. Limpiar variables y recargar pantalla
+                        mostrarDialogoResena = false
+                        textoResena = ""
+                        calificacionResena = 5
+                        cargarDatos()
+                        snackbarHostState.showSnackbar("¡Enhorabuena! Libro terminado y reseña publicada 🎉")
+                    }
+                }) { Text("Publicar y Terminar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoResena = false }) { Text("Cancelar", color = Color.Gray) }
             }
         )
     }
@@ -179,7 +274,7 @@ fun BibliotecaScreen(navController: NavHostController) {
             }
 
             if (cargando) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
             } else {
                 if (tabIndex == 0) {
                     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -188,7 +283,6 @@ fun BibliotecaScreen(navController: NavHostController) {
                                 libro = libro,
                                 tabIndex = tabIndex,
                                 onClick = {
-                                    // En Leyendo, el clic abre el popup de páginas
                                     libroSeleccionado = libro
                                     paginaInput = ""
                                     mostrarDialogo = true
@@ -223,7 +317,7 @@ fun BibliotecaScreen(navController: NavHostController) {
     }
 }
 
-// --- ITEM LEYENDO (Abre popup de progreso) ---
+// --- ITEM LEYENDO ---
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibroBibliotecaItem(
@@ -241,7 +335,7 @@ fun LibroBibliotecaItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(
-                    onClick = onClick, // Llama a la función que abre el popup
+                    onClick = onClick,
                     onLongClick = { mostrarMenu = true }
                 ),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -280,7 +374,7 @@ fun LibroBibliotecaItem(
     }
 }
 
-// --- ITEM CUADRÍCULA (Navega a detalles) ---
+// --- ITEM CUADRÍCULA ---
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibroGridItem(
@@ -299,7 +393,6 @@ fun LibroGridItem(
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = {
-                        // Codificamos la URL para que no crashee y navegamos usando la clase Screen
                         val rutaSegura = Uri.encode(libro.bookKey)
                         navController.navigate(Screen.BookDetail(bookKey = rutaSegura))
                     },

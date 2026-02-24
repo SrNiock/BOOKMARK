@@ -355,17 +355,15 @@ class AuthRepository {
     suspend fun obtenerFeedPublicaciones(): Result<List<PublicacionFeed>> {
         return withContext(Dispatchers.IO) {
             try {
+                // 👇 AQUÍ ESTÁ LA MAGIA: Le decimos a Supabase que traiga las publicaciones
+                // Y TAMBIÉN (*) todos los datos de la tabla Usuarios asociada
                 val lista = client.from("publicaciones")
-                    .select {
-                        // Al pedir "*, Usuarios(*)", Supabase hace la magia de unir las dos tablas
-                        // usando la Foreign Key de usuario_id que creaste.
-                        // Nota: Dependiendo de tu versión del SDK, a veces basta solo con .select()
-                    }
+                    .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("*, Usuarios(*)"))
                     .decodeList<PublicacionFeed>()
 
-                // Le damos la vuelta a la lista para que las más nuevas salgan arriba
                 Result.success(lista.reversed())
             } catch (e: Exception) {
+                println("❌ ERROR AL CARGAR FEED: ${e.message}") // Por si acaso falla algo
                 Result.failure(e)
             }
         }

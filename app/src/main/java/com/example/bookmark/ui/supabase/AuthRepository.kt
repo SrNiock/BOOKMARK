@@ -368,4 +368,109 @@ class AuthRepository {
             }
         }
     }
+    // --- NUEVO: OBTENER IDS DE LA GENTE A LA QUE SIGO ---
+    suspend fun obtenerIdsSeguidos(idUsuario: Long): Result<List<Long>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val relaciones = client.from("seguidores")
+                    .select { filter { eq("seguidor_id", idUsuario) } }
+                    .decodeList<SeguidorRelacion>()
+
+                // Extraemos solo la lista de IDs
+                val ids = relaciones.map { it.seguido_id }
+                Result.success(ids)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    // --- LIKES DE PUBLICACIONES ---
+
+    suspend fun darLike(idUsuario: Long, idPublicacion: Long): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Fíjate que usamos el nombre exacto de la tabla que acabas de crear
+                client.from("likes_publicaciones").insert(LikePublicacion(idUsuario, idPublicacion))
+                Result.success(Unit)
+            } catch (e: Exception) { Result.failure(e) }
+        }
+    }
+
+    suspend fun quitarLike(idUsuario: Long, idPublicacion: Long): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                client.from("likes_publicaciones").delete {
+                    filter {
+                        eq("usuario_id", idUsuario)
+                        eq("publicacion_id", idPublicacion)
+                    }
+                }
+                Result.success(Unit)
+            } catch (e: Exception) { Result.failure(e) }
+        }
+    }
+
+    suspend fun comprobarSiDioLike(idUsuario: Long, idPublicacion: Long): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val likes = client.from("likes_publicaciones").select {
+                    filter {
+                        eq("usuario_id", idUsuario)
+                        eq("publicacion_id", idPublicacion)
+                    }
+                }.decodeList<LikePublicacion>()
+                Result.success(likes.isNotEmpty())
+            } catch (e: Exception) { Result.failure(e) }
+        }
+    }
+
+    suspend fun contarLikes(idPublicacion: Long): Result<Long> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val likes = client.from("likes_publicaciones").select {
+                    filter { eq("publicacion_id", idPublicacion) }
+                }.decodeList<LikePublicacion>()
+                Result.success(likes.size.toLong())
+            } catch (e: Exception) { Result.failure(e) }
+        }
+    }
+
+    // --- COMENTARIOS ---
+
+    // 1. Escribir un nuevo comentario
+    suspend fun agregarComentario(comentario: Comentario): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Insertamos en la tabla "comentarios" que creaste en SQL
+                client.from("comentarios").insert(comentario)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                println("❌ ERROR AL COMENTAR: ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
+
+    // 2. Leer los comentarios de una publicación específica
+    suspend fun obtenerComentarios(idPublicacion: Long): Result<List<ComentarioFeed>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Seleccionamos los comentarios Y los datos del usuario asociado
+                val lista = client.from("comentarios")
+                    .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("*, Usuarios(*)")) {
+                        filter { eq("publicacion_id", idPublicacion) }
+                    }
+                    .decodeList<ComentarioFeed>()
+
+                // Los devolvemos ordenados (el más nuevo arriba o abajo, como prefieras, aquí por defecto)
+                Result.success(lista)
+            } catch (e: Exception) {
+                println("❌ ERROR AL LEER COMENTARIOS: ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
+
+
 }

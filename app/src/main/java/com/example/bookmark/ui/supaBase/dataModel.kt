@@ -2,7 +2,28 @@ package com.example.bookmark.ui.supaBase
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+@Serializable
+data class LikePublicacion(
+    val usuario_id: Long,
+    val publicacion_id: Long
+)
+@Serializable
+data class Comentario(
+    val id: Long? = null,
+    val usuario_id: Long,
+    val publicacion_id: Long,
+    val texto: String
+)
 
+@Serializable
+data class ComentarioFeed(
+    val id: Long? = null,
+    val texto: String,
+    val usuario_id: Long,
+    val publicacion_id: Long,
+    @SerialName("Usuarios")
+    val usuario: UsuarioPublicacion? = null
+)
 @Serializable
 data class Usuario(
     val id: Long? = null,

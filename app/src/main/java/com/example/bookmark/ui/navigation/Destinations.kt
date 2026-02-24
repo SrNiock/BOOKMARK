@@ -1,14 +1,18 @@
 package com.example.bookmark.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoStories
 // Importamos los iconos Rellenos (Filled)
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.LibraryBooks // <-- Sugerencia
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.AutoStories
 // Importamos los iconos Contorneados (Outlined)
 import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.LibraryAdd
 import androidx.compose.material.icons.outlined.LibraryBooks // <-- Sugerencia
 import androidx.compose.material.icons.outlined.Person
@@ -42,8 +46,8 @@ val bottomNavItems = listOf(
     TopLevelRoute(
         name = "Libros",
         route = Screen.Books,
-        selectedIcon = Icons.Filled.Book,
-        unselectedIcon = Icons.Outlined.Book
+        selectedIcon = Icons.Filled.AutoStories,
+        unselectedIcon = Icons.Outlined.AutoStories
     ),
     TopLevelRoute(
         name = "Buscar",
@@ -54,9 +58,8 @@ val bottomNavItems = listOf(
     TopLevelRoute(
         name = "Biblioteca",
         route = Screen.Library,
-        // Tip: Prueba a cambiar LibraryAdd por LibraryBooks, ¡suele quedar mejor en barras inferiores!
-        selectedIcon = Icons.Filled.LibraryAdd,
-        unselectedIcon = Icons.Outlined.LibraryAdd
+        selectedIcon = Icons.Filled.Bookmarks,
+        unselectedIcon = Icons.Outlined.Bookmarks
     ),
     TopLevelRoute(
         name = "Perfil",

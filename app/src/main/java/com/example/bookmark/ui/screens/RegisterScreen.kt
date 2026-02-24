@@ -1,7 +1,9 @@
 package com.example.bookmark.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -10,9 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.bookmark.ui.supaBase.AuthRepository
 import com.example.bookmark.ui.supaBase.Usuario
 import kotlinx.coroutines.launch
@@ -36,57 +41,98 @@ fun RegisterScreen(
     val coroutineScope = rememberCoroutineScope()
     val authRepository = remember { AuthRepository() }
 
+    // Colores dinámicos para los campos de texto
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+        focusedBorderColor = MaterialTheme.colorScheme.primary, // Borde Naranja al tocar
+        unfocusedBorderColor = Color.DarkGray, // Borde gris en reposo
+        cursorColor = MaterialTheme.colorScheme.primary,
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
+        unfocusedLabelColor = Color.Gray
+    )
+
     // Usamos verticalScroll por si la pantalla del móvil es pequeña
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .background(MaterialTheme.colorScheme.background) // Fondo Negro profundo
+            .padding(24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "Crear Cuenta", style = MaterialTheme.typography.headlineLarge)
-        Spacer(modifier = Modifier.height(32.dp))
+        // Título de la pantalla
+        Text(
+            text = "Crear Cuenta",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Únete para guardar tu progreso",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.Gray,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
+        Spacer(modifier = Modifier.height(40.dp))
 
         OutlinedTextField(
             value = nombre, onValueChange = { nombre = it },
-            label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth(), singleLine = true
+            label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp), colors = textFieldColors
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
             value = apellidos, onValueChange = { apellidos = it },
-            label = { Text("Apellidos") }, modifier = Modifier.fillMaxWidth(), singleLine = true
+            label = { Text("Apellidos") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp), colors = textFieldColors
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
             value = nickname, onValueChange = { nickname = it },
-            label = { Text("Nickname") }, modifier = Modifier.fillMaxWidth(), singleLine = true
+            label = { Text("Nickname") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp), colors = textFieldColors
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = correo, onValueChange = { correo = it },
-            label = { Text("Correo Electrónico") }, modifier = Modifier.fillMaxWidth(), singleLine = true
+            value = correo, onValueChange = { correo = it.trim() },
+            label = { Text("Correo Electrónico") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp), colors = textFieldColors
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
             value = contrasena, onValueChange = { contrasena = it },
             label = { Text("Contraseña") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            shape = RoundedCornerShape(12.dp), colors = textFieldColors,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                val description = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
+
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = image, contentDescription = null)
+                    Icon(
+                        imageVector = image,
+                        contentDescription = description,
+                        tint = if (passwordVisible) MaterialTheme.colorScheme.primary else Color.Gray
+                    )
                 }
             }
         )
 
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = errorMessage!!, color = MaterialTheme.colorScheme.error)
+            Text(
+                text = errorMessage!!,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -120,17 +166,39 @@ fun RegisterScreen(
                     errorMessage = "Por favor, rellena todos los campos"
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            enabled = !isLoading,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary, // Naranja
+                contentColor = MaterialTheme.colorScheme.onPrimary // Negro
+            ),
+            shape = RoundedCornerShape(14.dp)
         ) {
-            if (isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
-            else Text("Registrarse")
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 3.dp
+                )
+            } else {
+                Text(
+                    "REGISTRARSE",
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         TextButton(onClick = onNavigateBack) {
-            Text("¿Ya tienes cuenta? Inicia sesión")
+            Text(
+                text = "¿Ya tienes cuenta? Inicia sesión",
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }

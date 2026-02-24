@@ -1,15 +1,12 @@
 package com.example.bookmark.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -35,15 +32,12 @@ import com.example.bookmark.data.remote.BookUiState
 import com.example.bookmark.data.remote.BookViewModel
 import com.example.bookmark.data.remote.dto.Book
 import com.example.bookmark.ui.navigation.Screen
-import com.example.bookmark.ui.supaBase.AuthRepository
-import com.example.bookmark.ui.supaBase.MiLibro
-import com.example.bookmark.ui.utils.SessionManager
 import kotlinx.coroutines.launch
 
 @Composable
 fun SearchScreen(bookViewModel: BookViewModel, navController: NavHostController) {
-    // Fondo oscuro para toda la pantalla
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F0F0F))) {
+    // Fondo oscuro para toda la pantalla usando el tema
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         BookScreen(bookViewModel, navController)
     }
 }
@@ -66,11 +60,11 @@ fun BookScreen(viewModel: BookViewModel, navController: NavHostController) {
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = Color(0xFF00E5FF),
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                focusedBorderColor = MaterialTheme.colorScheme.primary, // Borde Naranja
                 unfocusedBorderColor = Color.DarkGray,
-                cursorColor = Color(0xFF00E5FF)
+                cursorColor = MaterialTheme.colorScheme.primary // Cursor Naranja
             ),
             trailingIcon = {
                 IconButton(onClick = { viewModel.searchBooks(searchText) }) {
@@ -127,12 +121,6 @@ fun BookList(books: List<Book>, viewModel: BookViewModel, navController: NavHost
 
 @Composable
 fun BookCard(book: Book, navController: NavHostController) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val authRepository = remember { AuthRepository() }
-    val sessionManager = remember { SessionManager(context) }
-    val correoActual = sessionManager.obtenerCorreoSesion() ?: ""
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -141,7 +129,7 @@ fun BookCard(book: Book, navController: NavHostController) {
                 // Navega a la pantalla de detalles usando la KEY única del libro
                 navController.navigate(Screen.BookDetail(book.key))
             },
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // Gris oscuro
         elevation = CardDefaults.cardElevation(4.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -152,7 +140,7 @@ fun BookCard(book: Book, navController: NavHostController) {
                 modifier = Modifier
                     .size(70.dp, 105.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.DarkGray),
+                    .background(Color.DarkGray), // Placeholder mientras carga
                 contentAlignment = Alignment.Center
             ) {
                 if (coverUrl != null) {
@@ -175,11 +163,11 @@ fun BookCard(book: Book, navController: NavHostController) {
             Spacer(modifier = Modifier.width(16.dp))
 
             // --- TEXTO ---
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface, // Blanco/claro del tema
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -191,33 +179,6 @@ fun BookCard(book: Book, navController: NavHostController) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
-
-            // --- BOTÓN AÑADIR ---
-            IconButton(
-                onClick = {
-                    coroutineScope.launch {
-                        val miLibro = MiLibro(
-                            correo_usuario = correoActual,
-                            book_key = book.key,
-                            titulo = book.title,
-                            autor = book.authorNames?.firstOrNull(),
-                            cover_id = book.coverId,
-                            estado = "deseado",
-                            progreso_porcentaje = 0
-                        )
-                        authRepository.actualizarLibroEnBiblioteca(miLibro).onSuccess {
-                            Toast.makeText(context, "Añadido a Pendientes", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AddCircle,
-                    contentDescription = "Añadir",
-                    tint = Color(0xFF00E5FF),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
         }
     }
 }
@@ -225,14 +186,15 @@ fun BookCard(book: Book, navController: NavHostController) {
 @Composable
 fun LoadingView() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = Color(0xFF00E5FF))
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) // Naranja
     }
 }
 
 @Composable
 fun ErrorView(message: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = message, color = Color(0xFFC2415E), modifier = Modifier.padding(20.dp), textAlign = TextAlign.Center)
+        // Usamos el color de error de nuestro tema
+        Text(text = message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(20.dp), textAlign = TextAlign.Center)
     }
 }
 
@@ -240,7 +202,7 @@ fun ErrorView(message: String) {
 fun SkeletonBookCard() {
     Card(
         modifier = Modifier.fillMaxWidth().padding(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(16.dp)
     ) {
         Row(modifier = Modifier.padding(12.dp)) {

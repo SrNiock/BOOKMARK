@@ -9,7 +9,7 @@ import kotlinx.coroutines.withContext
 class AuthRepository {
 
     private val tablaUsuarios = client.from("Usuarios")
-    private val tablaBiblioteca = client.from("MisLibros") // Nueva tabla de biblioteca
+    private val tablaBiblioteca = client.from("mislibros") // Nueva tabla de biblioteca
 
     // --- 1. LOGIN ---
     suspend fun login(correo: String, contrasena: String): Result<Usuario> {
@@ -93,12 +93,12 @@ class AuthRepository {
     }
 
     // --- 6. BIBLIOTECA: OBTENER LIBROS POR ESTADO ---
-    suspend fun obtenerLibrosPorEstado(correo: String, estado: String): Result<List<MiLibro>> {
+    suspend fun obtenerLibrosPorEstado(idUsuario: Long, estado: String): Result<List<MiLibro>> {
         return withContext(Dispatchers.IO) {
             try {
                 val lista = tablaBiblioteca.select {
                     filter {
-                        eq("correo_usuario", correo)
+                        eq("id_usuario", idUsuario) // Ahora filtramos por la nueva columna
                         eq("estado", estado)
                     }
                 }.decodeList<MiLibro>()

@@ -58,7 +58,7 @@ fun NavGraph(
 
         // --- SOLUCIÓN ERROR SEARCH ---
         composable<Screen.Search> {
-            SearchScreen(bookViewModel, navController)
+            SearchScreen(bookViewModel, navController) // <-- Solo le faltaba la palabra navController
         }
 
         composable<Screen.Library> {

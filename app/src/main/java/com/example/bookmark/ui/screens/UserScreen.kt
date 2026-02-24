@@ -29,7 +29,6 @@ import coil.compose.AsyncImage
 import com.example.bookmark.ui.supaBase.AuthRepository
 import com.example.bookmark.ui.utils.SessionManager
 import kotlinx.coroutines.launch
-import kotlin.onFailure
 
 @Composable
 fun UserScreen() {
@@ -47,7 +46,6 @@ fun UserScreen() {
     var bannerUrl by remember { mutableStateOf<String?>(null) }
     var nicknameUsuario by remember { mutableStateOf("Cargando...") }
 
-    // 🔥 Nuevos estados para la descripción
     var descripcionUsuario by remember { mutableStateOf("") }
     var editandoDescripcion by remember { mutableStateOf(false) }
 
@@ -63,7 +61,6 @@ fun UserScreen() {
                 nicknameUsuario = usuario.nickname
                 profileUrl = usuario.fotoPerfil
                 bannerUrl = usuario.fotoBanner
-                // 🔥 Cargamos la descripción (si es nula, ponemos texto vacío)
                 descripcionUsuario = usuario.descripcion ?: ""
             }.onFailure {
                 nicknameUsuario = "Error de conexión"
@@ -126,15 +123,19 @@ fun UserScreen() {
         }
     }
 
-    // Colores
-    val backgroundColor = Color(0xFF121212)
-    val surfaceColor = Color(0xFF1E1E1E)
-    val accentColor = Color(0xFF00E5FF)
+    // Colores de los campos de texto editables
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+        focusedBorderColor = MaterialTheme.colorScheme.primary, // Borde Naranja al editar
+        unfocusedBorderColor = Color.DarkGray,
+        cursorColor = MaterialTheme.colorScheme.primary,
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(MaterialTheme.colorScheme.background) // Fondo de la app
             .verticalScroll(scrollState)
     ) {
         // --- SECCIÓN 1: BANNER Y FOTO DE PERFIL ---
@@ -146,7 +147,7 @@ fun UserScreen() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
-                    .background(Color.DarkGray)
+                    .background(MaterialTheme.colorScheme.surface) // Gris oscuro
                     .clickable {
                         bannerPickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -162,11 +163,11 @@ fun UserScreen() {
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    Text("Toca para añadir un Banner", color = Color.White)
+                    Text("Toca para añadir un Banner", color = Color.Gray)
                 }
 
                 if (estaSubiendoBanner) {
-                    CircularProgressIndicator(color = accentColor)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
 
@@ -177,8 +178,9 @@ fun UserScreen() {
                     .align(Alignment.BottomStart)
                     .offset(x = 24.dp, y = 10.dp)
                     .clip(CircleShape)
-                    .background(Color.Gray)
-                    .border(3.dp, accentColor, CircleShape)
+                    .background(MaterialTheme.colorScheme.surface)
+                    // Borde Naranja (Primary) usando el tema
+                    .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
                     .clickable {
                         profilePickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -194,11 +196,11 @@ fun UserScreen() {
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    Text("Foto", color = Color.White)
+                    Text("Foto", color = Color.Gray)
                 }
 
                 if (estaSubiendoPerfil) {
-                    CircularProgressIndicator(color = accentColor)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -211,26 +213,26 @@ fun UserScreen() {
                 text = nicknameUsuario,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground // Blanco del tema
             )
 
-            // 🔥 Lógica de la Descripción Editable
+            // Lógica de la Descripción Editable
             if (editandoDescripcion) {
                 OutlinedTextField(
                     value = descripcionUsuario,
                     onValueChange = { descripcionUsuario = it },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
-                    placeholder = { Text("Escribe algo sobre ti...") },
+                    colors = textFieldColors,
+                    placeholder = { Text("Escribe algo sobre ti...", color = Color.Gray) },
                     trailingIcon = {
                         IconButton(onClick = {
-                            editandoDescripcion = false // Salimos del modo edición
-                            // Guardamos en Supabase reusando la función de actualizar celdas
+                            editandoDescripcion = false
                             coroutineScope.launch {
                                 authRepository.actualizarFotoTabla(correoActual, "descripcion", descripcionUsuario)
                             }
                         }) {
-                            Icon(Icons.Filled.Check, contentDescription = "Guardar", tint = accentColor)
+                            // Icono de Check en naranja
+                            Icon(Icons.Filled.Check, contentDescription = "Guardar", tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 )
@@ -241,7 +243,7 @@ fun UserScreen() {
                     color = Color.LightGray,
                     modifier = Modifier
                         .padding(top = 8.dp)
-                        .clickable { editandoDescripcion = true } // Al tocar, cambia a modo edición
+                        .clickable { editandoDescripcion = true }
                 )
             }
         }
@@ -250,12 +252,12 @@ fun UserScreen() {
 
         // --- SECCIÓN 3: AMISTADES ---
         Text(
-            text = "Amistades", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White,
+            text = "Amistades", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
         )
         Card(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-            colors = CardDefaults.cardColors(containerColor = surfaceColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface) // Gris oscuro del tema
         ) {
             Text(
                 text = "Aún no tienes amigos añadidos. ¡Pronto podrás buscarlos aquí!",
@@ -267,7 +269,7 @@ fun UserScreen() {
 
         // --- SECCIÓN 4: LOS 4 LIBROS FAVORITOS ---
         Text(
-            text = "Mis 4 Favoritos", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White,
+            text = "Mis 4 Favoritos", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
         )
 
@@ -291,8 +293,8 @@ fun BookPlaceholderBox(modifier: Modifier = Modifier) {
         modifier = modifier
             .aspectRatio(0.7f)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF1E1E1E))
-            .border(1.dp, Color(0xFF333333), RoundedCornerShape(8.dp)),
+            .background(MaterialTheme.colorScheme.surface) // Usamos el Surface oscuro
+            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp)), // Borde más sutil
         contentAlignment = Alignment.Center
     ) {
         Text("Libro", color = Color.Gray, fontSize = 12.sp)

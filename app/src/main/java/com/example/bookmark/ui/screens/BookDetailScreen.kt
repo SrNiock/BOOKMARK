@@ -7,11 +7,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,21 +42,52 @@ fun BookDetailScreen(
     val sessionManager = remember { SessionManager(context) }
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+    val idActual = sessionManager.obtenerIdSesion() ?: 0L
+
+    // Estado para controlar el menú de añadir libro
+    var menuAbierto by remember { mutableStateOf(false) }
 
     // Buscamos el libro en el estado actual del ViewModel
     val book = (viewModel.state.value as? BookUiState.Success)?.books?.find { it.key == bookKey }
 
+    // Lógica reutilizable para guardar el libro en el estado que elijamos del menú
+    val guardarLibro = { estadoElegido: String ->
+        if (book != null) {
+            coroutineScope.launch {
+                val miLibro = MiLibro(
+                    id_usuario = idActual, // <--- USAMOS EL ID AQUÍ
+                    bookKey = book.key,    // Ojo con el nombre exacto de tu Data Class (bookKey o book_key)
+                    titulo = book.title,
+                    autor = book.authorNames?.firstOrNull(),
+                    cover_id = book.coverId,
+                    estado = estadoElegido,
+                    progreso_porcentaje = 0
+                )
+                authRepository.actualizarLibroEnBiblioteca(miLibro).onSuccess {
+                    val nombreLista = when(estadoElegido) {
+                        "deseado" -> "Wishlist"
+                        "leyendo" -> "Leyendo"
+                        else -> "Terminados"
+                    }
+                    Toast.makeText(context, "Añadido a $nombreLista", Toast.LENGTH_SHORT).show()
+                }.onFailure {
+                    Toast.makeText(context, "Error al guardar", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     Scaffold(
-        containerColor = Color(0xFF0F0F0F), // Negro mate
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Detalles del libro", color = Color.White, fontSize = 20.sp) },
+                title = { Text("Detalles del libro", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Volver",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 },
@@ -78,7 +108,7 @@ fun BookDetailScreen(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. Portada del Libro (Grande y con sombra)
+                // 1. Portada del Libro
                 AsyncImage(
                     model = "https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg",
                     contentDescription = book.title,
@@ -96,7 +126,7 @@ fun BookDetailScreen(
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
@@ -104,24 +134,71 @@ fun BookDetailScreen(
                 Text(
                     text = book.authorNames?.joinToString(", ") ?: "Autor desconocido",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF00E5FF), // Color cyan de tu app
+                    color = MaterialTheme.colorScheme.primary, // Naranja
                     modifier = Modifier.padding(top = 4.dp)
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // 3. Ficha Técnica (Año e Idioma)
+                // 3. Ficha Técnica con Botón de Añadir Múltiple
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1A1A1A))
+                        .background(MaterialTheme.colorScheme.surface) // Gris oscuro
                         .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     InfoDetailColumn("Publicado", "${book.firstPublishYear ?: "---"}")
+
                     VerticalDivider(color = Color.DarkGray, modifier = Modifier.height(40.dp).width(1.dp))
-                    InfoDetailColumn("Idioma", book.language?.firstOrNull()?.uppercase() ?: "N/A")
+
+                    // 👇 AQUÍ HEMOS CAMBIADO IDIOMA POR PÁGINAS 👇
+                    InfoDetailColumn("Páginas", "${book.numeroPaginas ?: "---"}")
+
+                    VerticalDivider(color = Color.DarkGray, modifier = Modifier.height(40.dp).width(1.dp))
+
+                    // EL BOTÓN CON MENÚ (se queda exactamente igual)
+                    Box {
+                        IconButton(onClick = { menuAbierto = true }) {
+                            Icon(
+                                imageVector = Icons.Default.AddCircle,
+                                contentDescription = "Añadir a...",
+                                tint = MaterialTheme.colorScheme.primary, // Icono Naranja
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+
+                        // Menú Desplegable (Dropdown)
+                        DropdownMenu(
+                            expanded = menuAbierto,
+                            onDismissRequest = { menuAbierto = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Añadir a Wishlist", color = MaterialTheme.colorScheme.onBackground) },
+                                onClick = {
+                                    menuAbierto = false
+                                    guardarLibro("deseado")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Añadir a Leyendo", color = MaterialTheme.colorScheme.onBackground) },
+                                onClick = {
+                                    menuAbierto = false
+                                    guardarLibro("leyendo")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Añadir a Terminados", color = MaterialTheme.colorScheme.onBackground) },
+                                onClick = {
+                                    menuAbierto = false
+                                    guardarLibro("terminado")
+                                }
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -130,7 +207,7 @@ fun BookDetailScreen(
                 Text(
                     text = "Sobre este libro",
                     style = MaterialTheme.typography.titleLarge,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.fillMaxWidth(),
                     fontWeight = FontWeight.Bold
                 )
@@ -146,42 +223,7 @@ fun BookDetailScreen(
                 )
 
                 Spacer(modifier = Modifier.height(40.dp))
-
-                // 5. Botón de Acción Principal
-                Button(
-                    onClick = {
-                        coroutineScope.launch {
-                            val miLibro = MiLibro(
-                                correo_usuario = sessionManager.obtenerCorreoSesion() ?: "",
-                                book_key = book.key,
-                                titulo = book.title,
-                                autor = book.authorNames?.firstOrNull(),
-                                cover_id = book.coverId,
-                                estado = "deseado",
-                                progreso_porcentaje = 0
-                            )
-                            authRepository.actualizarLibroEnBiblioteca(miLibro).onSuccess {
-                                Toast.makeText(context, "¡Añadido a Pendientes!", Toast.LENGTH_SHORT).show()
-                            }.onFailure {
-                                Toast.makeText(context, "Error al guardar", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Text(
-                        "QUIERO LEERLO",
-                        color = Color.Black,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
+                // (Hemos eliminado el botón gigante de la parte inferior como pediste)
             }
         }
     }
@@ -192,6 +234,6 @@ fun InfoDetailColumn(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = label, color = Color.Gray, fontSize = 12.sp)
         Spacer(modifier = Modifier.height(4.dp))
-        Text(text = value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(text = value, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
     }
 }

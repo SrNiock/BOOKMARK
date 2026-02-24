@@ -21,11 +21,11 @@ data class Usuario(
 @Serializable
 data class MiLibro(
     val id: Int? = null,
-    val correo_usuario: String,
-    val book_key: String,
+    val id_usuario: Long,
+    @SerialName("book_key") val bookKey: String, // 👇 ¡AQUÍ ESTÁ EL CAMBIO! Tod0 en minúscula
     val titulo: String,
-    val autor: String?,
-    val cover_id: Int?,
-    val estado: String, // "deseado", "leyendo", "terminado"
+    val autor: String? = null,
+    val cover_id: Int? = null,
+    val estado: String,
     val progreso_porcentaje: Int = 0
 )

@@ -5,11 +5,19 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 
+@Serializable
+data class Favorito(
+    val id: Int? = null,
+    val usuario_id: Long,
+    val libro_id: Int
+)
 class AuthRepository {
 
     private val tablaUsuarios = client.from("Usuarios")
     private val tablaBiblioteca = client.from("mislibros") // Nueva tabla de biblioteca
+    private val tablaFavoritos = client.from("favoritos")
 
     // --- 1. LOGIN ---
     suspend fun login(correo: String, contrasena: String): Result<Usuario> {
@@ -126,11 +134,15 @@ class AuthRepository {
     }
 
     // --- 8. BIBLIOTECA: ACTUALIZAR SOLO EL PROGRESO ---
-    suspend fun actualizarProgreso(idLibro: Int, nuevoProgreso: Int, nuevoEstado: String): Result<Unit> {
+    suspend fun actualizarProgreso(
+        idLibro: Int,
+        nuevoProgreso: Int,
+        nuevoEstado: String
+    ): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
                 tablaBiblioteca.update({
-                    set("progreso_percentage", nuevoProgreso)
+                    set("progreso_porcentaje", nuevoProgreso) // <-- Nombre exacto en Supabase
                     set("estado", nuevoEstado)
                 }) {
                     filter { eq("id", idLibro) }
@@ -150,6 +162,58 @@ class AuthRepository {
                     filter { eq("id", idLibro) }
                 }
                 Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun agregarAFavoritos(idUsuario: Long, idLibro: Int): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val nuevoFav = Favorito(usuario_id = idUsuario, libro_id = idLibro)
+                tablaFavoritos.insert(nuevoFav)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun contarFavoritos(idUsuario: Long): Result<Long> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Contamos cuántas filas hay para este usuario en la tabla favoritos
+                val conteo = tablaFavoritos.select {
+                    filter { eq("usuario_id", idUsuario) }
+                }.decodeList<Favorito>().size.toLong()
+                Result.success(conteo)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+    suspend fun obtenerFavoritos(idUsuario: Long): Result<List<MiLibro>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // 1. Fíjate que ahora usamos select { ... } con LLAVES
+                val filasFavoritos = client.from("favoritos")
+                    .select {
+                        filter { eq("usuario_id", idUsuario) }
+                    }.decodeList<Favorito>()
+
+                val idsLibros = filasFavoritos.map { it.libro_id }
+
+                if (idsLibros.isEmpty()) return@withContext Result.success(emptyList())
+
+                // 2. Buscamos los datos reales en 'mislibros'
+                val libros = client.from("mislibros")
+                    .select {
+                        // Usamos 'isIn' en lugar de `in` para evitar conflictos en Kotlin
+                        filter { isIn("id", idsLibros) }
+                    }.decodeList<MiLibro>()
+
+                Result.success(libros)
             } catch (e: Exception) {
                 Result.failure(e)
             }

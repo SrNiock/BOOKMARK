@@ -4,11 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,52 +36,237 @@ import com.example.bookmark.data.remote.BookUiState
 import com.example.bookmark.data.remote.BookViewModel
 import com.example.bookmark.data.remote.dto.Book
 import com.example.bookmark.ui.navigation.Screen
+import com.example.bookmark.ui.supaBase.AuthRepository
+import com.example.bookmark.ui.supaBase.Usuario
 import kotlinx.coroutines.launch
 
 @Composable
 fun SearchScreen(bookViewModel: BookViewModel, navController: NavHostController) {
-    // Fondo oscuro para toda la pantalla usando el tema
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         BookScreen(bookViewModel, navController)
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookScreen(viewModel: BookViewModel, navController: NavHostController) {
-    val state by viewModel.state
+    val coroutineScope = rememberCoroutineScope()
+    val authRepository = remember { AuthRepository() }
+
+    // Estados de la barra de búsqueda
     var searchText by remember { mutableStateOf("") }
+    var searchMode by remember { mutableStateOf("Libros") } // Puede ser "Libros" o "Usuarios"
+    var isMenuExpanded by remember { mutableStateOf(false) }
+
+    // Estados para la búsqueda de Usuarios
+    var userList by remember { mutableStateOf<List<Usuario>>(emptyList()) }
+    var isSearchingUsers by remember { mutableStateOf(false) }
+    var userSearchError by remember { mutableStateOf<String?>(null) }
+
+    // Obtenemos el estado de los libros
+    val bookState by viewModel.state
+
+    // Función para buscar usuarios
+    fun buscarUsuariosDB(query: String) {
+        if (query.trim().isEmpty()) {
+            userList = emptyList()
+            return
+        }
+        isSearchingUsers = true
+        userSearchError = null
+        coroutineScope.launch {
+            authRepository.buscarUsuarios(query).onSuccess { usuarios ->
+                userList = usuarios
+            }.onFailure { error ->
+                userSearchError = "Error DB: ${error.message}"
+                println("❌ ERROR EXACTO: ${error.message}")
+            }
+            isSearchingUsers = false
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // --- BUSCADOR ---
+        // --- BARRA DE BÚSQUEDA ---
         OutlinedTextField(
             value = searchText,
             onValueChange = { newText ->
                 searchText = newText
-                viewModel.onQueryChanged(newText)
+                // Búsqueda automática dependiendo del modo
+                if (searchMode == "Libros") {
+                    viewModel.onQueryChanged(newText)
+                } else if (newText.length >= 3) {
+                    // Si es usuario, esperamos a 3 letras
+                    buscarUsuariosDB(newText)
+                } else {
+                    userList = emptyList()
+                }
             },
-            label = { Text("Buscar libros...", color = Color.Gray) },
+            label = { Text("Buscar $searchMode...", color = Color.Gray) },
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = MaterialTheme.colorScheme.onBackground,
                 unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                focusedBorderColor = MaterialTheme.colorScheme.primary, // Borde Naranja
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = Color.DarkGray,
-                cursorColor = MaterialTheme.colorScheme.primary // Cursor Naranja
+                cursorColor = MaterialTheme.colorScheme.primary
             ),
+            leadingIcon = {
+                // Icono dinámico según el modo
+                Icon(
+                    imageVector = if (searchMode == "Libros") Icons.Default.Book else Icons.Default.Person,
+                    contentDescription = "Modo",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
             trailingIcon = {
-                IconButton(onClick = { viewModel.searchBooks(searchText) }) {
-                    Icon(imageVector = Icons.Default.Search, contentDescription = "Buscar", tint = Color.Gray)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Botón de la lupa
+                    IconButton(onClick = {
+                        if (searchMode == "Libros") viewModel.searchBooks(searchText)
+                        else buscarUsuariosDB(searchText)
+                    }) {
+                        Icon(imageVector = Icons.Default.Search, contentDescription = "Buscar", tint = Color.Gray)
+                    }
+
+                    // Botón de los tres puntos (Menú)
+                    Box {
+                        IconButton(onClick = { isMenuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Opciones", tint = Color.Gray)
+                        }
+                        DropdownMenu(
+                            expanded = isMenuExpanded,
+                            onDismissRequest = { isMenuExpanded = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Buscar Libros", color = if(searchMode == "Libros") MaterialTheme.colorScheme.primary else Color.LightGray) },
+                                onClick = {
+                                    searchMode = "Libros"
+                                    isMenuExpanded = false
+                                    searchText = "" // Limpiamos al cambiar
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Buscar Usuarios", color = if(searchMode == "Usuarios") MaterialTheme.colorScheme.primary else Color.LightGray) },
+                                onClick = {
+                                    searchMode = "Usuarios"
+                                    isMenuExpanded = false
+                                    searchText = "" // Limpiamos al cambiar
+                                }
+                            )
+                        }
+                    }
                 }
             }
         )
 
-        // --- GESTIÓN DE ESTADOS ---
-        when (state) {
-            is BookUiState.Loading -> LoadingView()
-            is BookUiState.Error -> ErrorView((state as BookUiState.Error).message)
-            is BookUiState.Success -> BookList((state as BookUiState.Success).books, viewModel, navController)
+        // --- RESULTADOS DE LA BÚSQUEDA ---
+        if (searchMode == "Libros") {
+            // Pintamos los libros usando tu lógica actual
+            when (val currentState = bookState) {
+                is BookUiState.Loading -> LoadingView()
+                is BookUiState.Error -> ErrorView(currentState.message)
+                is BookUiState.Success -> BookList(currentState.books, viewModel, navController)
+            }
+        } else {
+            // Pintamos los Usuarios
+            if (isSearchingUsers) {
+                LoadingView()
+            } else if (userSearchError != null) {
+                ErrorView(userSearchError!!)
+            } else if (userList.isEmpty() && searchText.isNotEmpty()) {
+                ErrorView("No se encontraron usuarios")
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(userList) { usuario ->
+                        UserCard(
+                            usuario = usuario,
+                            navController = navController, // Aquí le pasamos el controlador
+                            onSeguirClick = { /* TODO en el siguiente paso */ }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- NUEVO COMPONENTE: TARJETA DE USUARIO ---
+@Composable
+fun UserCard(
+    usuario: Usuario,
+    navController: NavHostController, // Ahora la función lo recibe correctamente
+    onSeguirClick: () -> Unit
+) {
+    var isSiguiendo by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable {
+                // 👇 MAGIA AQUÍ: Navegamos pasándole el ID del usuario
+                usuario.id?.let { idUsuario ->
+                    navController.navigate(Screen.ExternalProfile(userId = idUsuario))
+                }
+            },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 1. Foto de Perfil redonda
+            AsyncImage(
+                model = usuario.fotoPerfil ?: R.drawable.librologo, // Usa tu icono por defecto si no tiene
+                contentDescription = "Foto de ${usuario.nickname}",
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(Color.DarkGray),
+                contentScale = ContentScale.Crop
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // 2. Información del usuario
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "@${usuario.nickname}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (!usuario.descripcion.isNullOrEmpty()) {
+                    Text(
+                        text = usuario.descripcion,
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // 3. Botón de Seguir
+            Button(
+                onClick = { isSiguiendo = !isSiguiendo }, // Cambiamos estado visual por ahora
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isSiguiendo) Color.DarkGray else MaterialTheme.colorScheme.primary,
+                    contentColor = if (isSiguiendo) Color.White else Color.Black
+                ),
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.height(36.dp)
+            ) {
+                Text(text = if (isSiguiendo) "Siguiendo" else "Seguir", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

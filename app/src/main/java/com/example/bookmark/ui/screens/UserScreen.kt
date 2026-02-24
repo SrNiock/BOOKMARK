@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,6 +33,7 @@ import com.example.bookmark.ui.supaBase.MiLibro
 import com.example.bookmark.ui.utils.SessionManager
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun UserScreen() {
     val scrollState = rememberScrollState()
@@ -55,7 +57,11 @@ fun UserScreen() {
     var estaSubiendoBanner by remember { mutableStateOf(false) }
 
     val idActual = sessionManager.obtenerIdSesion() ?: 0L
-    var listaFavoritos by remember { mutableStateOf<List<MiLibro>>(emptyList()) } // Lista real de libros
+    var listaFavoritos by remember { mutableStateOf<List<MiLibro>>(emptyList()) }
+
+    // 👇 NUEVOS ESTADOS PARA LOS CONTADORES
+    var totalSeguidores by remember { mutableStateOf(0L) }
+    var totalSeguidos by remember { mutableStateOf(0L) }
 
     // --- CARGA INICIAL (Leer BD al entrar) ---
     LaunchedEffect(correoActual) {
@@ -68,10 +74,15 @@ fun UserScreen() {
                 bannerUrl = usuario.fotoBanner
                 descripcionUsuario = usuario.descripcion ?: ""
 
-                // 👇 CARGA DE FAVORITOS AL ENTRAR AL PERFIL
+                // Carga de favoritos
                 authRepository.obtenerFavoritos(idActual).onSuccess { favs ->
-                    listaFavoritos = favs.take(4) // Nos aseguramos de coger máximo 4
+                    listaFavoritos = favs.take(4)
                 }
+
+                // 👇 CARGA DE SEGUIDORES Y SEGUIDOS
+                authRepository.contarSeguidores(idActual).onSuccess { totalSeguidores = it }
+                authRepository.contarSeguidos(idActual).onSuccess { totalSeguidos = it }
+
             }.onFailure {
                 nicknameUsuario = "Error de conexión"
             }
@@ -81,7 +92,6 @@ fun UserScreen() {
     }
 
     // --- LANZADORES DE LA GALERÍA ---
-    // 1. Para el Banner
     val bannerPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
@@ -107,7 +117,6 @@ fun UserScreen() {
         }
     }
 
-    // 2. Para la Foto de Perfil
     val profilePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
@@ -133,11 +142,10 @@ fun UserScreen() {
         }
     }
 
-    // Colores de los campos de texto editables
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = MaterialTheme.colorScheme.onBackground,
         unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-        focusedBorderColor = MaterialTheme.colorScheme.primary, // Borde Naranja al editar
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
         unfocusedBorderColor = Color.DarkGray,
         cursorColor = MaterialTheme.colorScheme.primary,
     )
@@ -145,43 +153,29 @@ fun UserScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background) // Fondo de la app
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
     ) {
         // --- SECCIÓN 1: BANNER Y FOTO DE PERFIL ---
-        Box(
-            modifier = Modifier.fillMaxWidth().height(220.dp)
-        ) {
-            // 1.1 El Banner (Fondo)
+        Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
-                    .background(MaterialTheme.colorScheme.surface) // Gris oscuro
+                    .background(MaterialTheme.colorScheme.surface)
                     .clickable {
-                        bannerPickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
+                        bannerPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     },
                 contentAlignment = Alignment.Center
             ) {
                 if (!bannerUrl.isNullOrEmpty()) {
-                    AsyncImage(
-                        model = bannerUrl,
-                        contentDescription = "Banner del usuario",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
+                    AsyncImage(model = bannerUrl, contentDescription = "Banner", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
                     Text("Toca para añadir un Banner", color = Color.Gray)
                 }
-
-                if (estaSubiendoBanner) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
+                if (estaSubiendoBanner) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
 
-            // 1.2 La Foto de Perfil (Superpuesta)
             Box(
                 modifier = Modifier
                     .size(110.dp)
@@ -189,29 +183,18 @@ fun UserScreen() {
                     .offset(x = 24.dp, y = 10.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surface)
-                    // Borde Naranja (Primary) usando el tema
                     .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
                     .clickable {
-                        profilePickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
+                        profilePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     },
                 contentAlignment = Alignment.Center
             ) {
                 if (!profileUrl.isNullOrEmpty()) {
-                    AsyncImage(
-                        model = profileUrl,
-                        contentDescription = "Foto de perfil",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
+                    AsyncImage(model = profileUrl, contentDescription = "Perfil", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
                     Text("Foto", color = Color.Gray)
                 }
-
-                if (estaSubiendoPerfil) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
+                if (estaSubiendoPerfil) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
 
@@ -219,14 +202,8 @@ fun UserScreen() {
 
         // --- SECCIÓN 2: INFO DEL USUARIO ---
         Column(modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth()) {
-            Text(
-                text = nicknameUsuario,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground // Blanco del tema
-            )
+            Text(text = nicknameUsuario, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
 
-            // Lógica de la Descripción Editable
             if (editandoDescripcion) {
                 OutlinedTextField(
                     value = descripcionUsuario,
@@ -241,7 +218,6 @@ fun UserScreen() {
                                 authRepository.actualizarFotoTabla(correoActual, "descripcion", descripcionUsuario)
                             }
                         }) {
-                            // Icono de Check en naranja
                             Icon(Icons.Filled.Check, contentDescription = "Guardar", tint = MaterialTheme.colorScheme.primary)
                         }
                     }
@@ -251,28 +227,35 @@ fun UserScreen() {
                     text = if (descripcionUsuario.isEmpty()) "Añade una descripción sobre ti... ✏️" else descripcionUsuario,
                     fontSize = 14.sp,
                     color = Color.LightGray,
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .clickable { editandoDescripcion = true }
+                    modifier = Modifier.padding(top = 8.dp).clickable { editandoDescripcion = true }
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // --- SECCIÓN 3: AMISTADES ---
-        Text(
-            text = "Amistades", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-        )
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface) // Gris oscuro del tema
+        // --- SECCIÓN 3: SEGUIDORES Y SEGUIDOS ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Aún no tienes amigos añadidos. ¡Pronto podrás buscarlos aquí!",
-                color = Color.Gray, modifier = Modifier.padding(16.dp)
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = totalSeguidores.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                Text(text = "Seguidores", fontSize = 14.sp, color = Color.Gray)
+            }
+
+            VerticalDivider(color = Color.DarkGray, modifier = Modifier.height(30.dp).width(1.dp))
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = totalSeguidos.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                Text(text = "Seguidos", fontSize = 14.sp, color = Color.Gray)
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -291,7 +274,6 @@ fun UserScreen() {
                 val libro = listaFavoritos.getOrNull(index)
 
                 if (libro != null) {
-                    // Creamos un estado independiente para el menú de cada libro
                     var mostrarMenuFav by remember { mutableStateOf(false) }
 
                     Box(modifier = Modifier.weight(1f)) {
@@ -304,13 +286,12 @@ fun UserScreen() {
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surface)
                                 .combinedClickable(
-                                    onClick = { /* Aquí podrías navegar a los detalles del libro */ },
-                                    onLongClick = { mostrarMenuFav = true } // Al mantener, mostramos el menú
+                                    onClick = { /* Navegar a detalles si quieres */ },
+                                    onLongClick = { mostrarMenuFav = true }
                                 ),
-                        contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop
                         )
 
-                        // El menú que sale al mantener pulsado
                         DropdownMenu(
                             expanded = mostrarMenuFav,
                             onDismissRequest = { mostrarMenuFav = false }
@@ -319,12 +300,9 @@ fun UserScreen() {
                                 text = { Text("Eliminar de favoritos", color = Color.Red) },
                                 onClick = {
                                     mostrarMenuFav = false
-                                    // Eliminamos de la base de datos
                                     coroutineScope.launch {
                                         libro.id?.let { idLibro ->
                                             authRepository.eliminarDeFavoritos(idActual, idLibro).onSuccess {
-                                                // Si se elimina bien de Supabase, lo quitamos de la lista local
-                                                // Esto provocará que la pantalla se redibuje y aparezca el hueco vacío
                                                 listaFavoritos = listaFavoritos.filter { it.id != idLibro }
                                             }
                                         }
@@ -349,8 +327,8 @@ fun BookPlaceholderBox(modifier: Modifier = Modifier) {
         modifier = modifier
             .aspectRatio(0.7f)
             .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surface) // Usamos el Surface oscuro
-            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp)), // Borde más sutil
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
         Text("Libro", color = Color.Gray, fontSize = 12.sp)

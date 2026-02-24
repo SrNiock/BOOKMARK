@@ -18,6 +18,7 @@ sealed interface Screen {
     @Serializable data object Library : Screen
     @Serializable data object Profile : Screen
     @Serializable data class BookDetail(val bookKey: String) : Screen // <--- Nueva ruta con parámetro
+    @Serializable data class ExternalProfile(val userId: Long)
 }
 
 

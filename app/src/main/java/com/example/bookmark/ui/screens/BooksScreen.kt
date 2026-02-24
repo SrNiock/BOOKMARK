@@ -26,11 +26,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -38,9 +41,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.bookmark.data.remote.BookUiState
 import com.example.bookmark.data.remote.BookViewModel
@@ -63,19 +70,18 @@ import kotlin.math.absoluteValue
 import androidx.compose.ui.util.lerp
 
 @Composable
-fun BooksScreen(viewModel: BookViewModel) {
-    val uiState by viewModel.state // Observamos el estado del ViewModel
+fun BooksScreen(viewModel: BookViewModel, onLogout: () -> Unit) {
+    val uiState by viewModel.state
 
-    // Contenedor principal con fondo oscuro profundo
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF0F0F0F) // Negro mate
+        color = MaterialTheme.colorScheme.background // Fondo negro del tema
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            NoteReaderTopBar()
+            NoteReaderTopBar(onLogout = onLogout)
 
             when (uiState) {
-                is BookUiState.Loading -> LoadingView()
+                is BookUiState.Loading -> LoadingView() // Asegúrate de tener estas funciones o importarlas
                 is BookUiState.Error -> ErrorView((uiState as BookUiState.Error).message)
                 is BookUiState.Success -> {
                     val books = (uiState as BookUiState.Success).books
@@ -87,11 +93,27 @@ fun BooksScreen(viewModel: BookViewModel) {
 }
 
 @Composable
-fun NoteReaderTopBar() {
+fun NoteReaderTopBar(onLogout: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = remember { com.example.bookmark.ui.utils.SessionManager(context) }
+    val authRepository = remember { com.example.bookmark.ui.supaBase.AuthRepository() }
+    val correoActual = sessionManager.obtenerCorreoSesion() ?: ""
+
+    var fotoPerfilUrl by remember { mutableStateOf<String?>(null) }
+    var menuAbierto by remember { mutableStateOf(false) }
+
+    LaunchedEffect(correoActual) {
+        if (correoActual.isNotEmpty()) {
+            authRepository.obtenerUsuario(correoActual).onSuccess { usuario ->
+                fotoPerfilUrl = usuario.fotoPerfil
+            }
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -99,25 +121,57 @@ fun NoteReaderTopBar() {
             text = "BookMark",
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground // Blanco del tema
             )
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Icono de linterna/modo
-            IconButton(onClick = { /* TODO */ }) {
-                Icon(
-                    painter = painterResource(id = android.R.drawable.ic_menu_compass), // Cambiar por tu icono
-                    contentDescription = null,
-                    tint = Color.White
+
+        Box {
+            Surface(
+                onClick = { menuAbierto = true },
+                color = Color.Transparent,
+                shape = CircleShape
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(45.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!fotoPerfilUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = fotoPerfilUrl,
+                            contentDescription = "Mi perfil",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text("U", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            DropdownMenu(
+                expanded = menuAbierto,
+                onDismissRequest = { menuAbierto = false },
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface) // Gris oscuro
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Cerrar Sesión", color = MaterialTheme.colorScheme.onBackground) },
+                    onClick = {
+                        menuAbierto = false
+                        sessionManager.cerrarSesion()
+                        onLogout()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = null,
+                            tint = Color.Red // Lo mantenemos rojo para indicar peligro/salida
+                        )
+                    }
                 )
             }
-            // Avatar de usuario
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.Gray)
-            )
         }
     }
 }
@@ -128,45 +182,37 @@ fun BookContent(books: List<Book>) {
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
-        // SECCIÓN: "Continue Reading" (Se mantiene igual)
         if (books.isNotEmpty()) {
             item {
                 ContinueReadingSection(books.first())
             }
         }
 
-        // SECCIÓN: "For you" con EFECTO CARRUSEL CENTRADO
         item {
             SectionHeader(title = "For you")
             Spacer(modifier = Modifier.height(16.dp))
-            // Pasamos la lista sin el primer libro (ya está arriba)
             BookCarouselRow(books = books.drop(1))
         }
     }
 }
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BookCarouselRow(books: List<Book>) {
-    // 1. Estado para controlar la posición del scroll
     val listState = rememberLazyListState()
-    // 2. Comportamiento de "Snap" para que se detenga en el centro de un elemento
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
-    // Ancho base de cada ítem y espaciado
     val itemWidth = 140.dp
     val spacing = 16.dp
 
     LazyRow(
         state = listState,
         flingBehavior = flingBehavior,
-        // Añadimos padding horizontal grande para que el primer y último ítem puedan quedar centrados
         contentPadding = PaddingValues(horizontal = (itemWidth / 2) + spacing),
         horizontalArrangement = Arrangement.spacedBy(spacing),
-        modifier = Modifier.fillMaxWidth().height(280.dp) // Altura fija para el contenedor
+        modifier = Modifier.fillMaxWidth().height(280.dp)
     ) {
         itemsIndexed(books) { index, book ->
-            // 3. Cálculo de la escala y opacidad basado en la posición
-            // ... dentro de itemsIndexed en el LazyRow ...
             val scale by remember {
                 derivedStateOf {
                     val layoutInfo = listState.layoutInfo
@@ -176,32 +222,18 @@ fun BookCarouselRow(books: List<Book>) {
                     if (itemInfo != null) {
                         val itemCenter = itemInfo.offset + itemInfo.size / 2f
                         val distanceFromCenter = (viewportCenter - itemCenter).absoluteValue
-
-                        // Factor de normalización (0.0 en el centro, 1.0 en los bordes)
                         val normalizedDistance = (distanceFromCenter / (viewportCenter * 0.8f)).coerceIn(0f, 1f)
 
-                        // SOLUCIÓN: Usamos argumentos nombrados para eliminar la ambigüedad
-                        // Si usas el import de compose ui util, el parámetro es 'fraction'
-                        androidx.compose.ui.util.lerp(
-                            start = 1f,
-                            stop = 0.85f,
-                            fraction = normalizedDistance
-                        )
+                        lerp(start = 1f, stop = 0.85f, fraction = normalizedDistance)
                     } else {
                         0.85f
                     }
                 }
             }
 
-// Aplicamos lo mismo para el Alpha
             val alphaScale = ((1f - scale) / 0.15f).coerceIn(0f, 1f)
-            val alpha = androidx.compose.ui.util.lerp(
-                start = 1f,
-                stop = 0.6f,
-                fraction = alphaScale
-            )
+            val alpha = lerp(start = 1f, stop = 0.6f, fraction = alphaScale)
 
-            // 4. Pasamos la escala calculada al componente del libro
             BookHorizontalItem(
                 book = book,
                 scale = scale,
@@ -218,14 +250,13 @@ fun ContinueReadingSection(book: Book) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // Gris oscuro
         shape = RoundedCornerShape(24.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Portada del libro
             BookCover(
                 coverId = book.coverId,
                 modifier = Modifier
@@ -241,7 +272,7 @@ fun ContinueReadingSection(book: Book) {
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 2
                 )
                 Text(
@@ -252,11 +283,10 @@ fun ContinueReadingSection(book: Book) {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Barra de progreso ficticia como en la imagen
                 LinearProgressIndicator(
-                    progress = 0.78f,
+                    progress = { 0.78f },
                     modifier = Modifier.fillMaxWidth().clip(CircleShape),
-                    color = Color(0xFFC2415E), // Color rojizo/rosa de la imagen
+                    color = MaterialTheme.colorScheme.primary, // BARRA NARANJA
                     trackColor = Color.DarkGray
                 )
 
@@ -270,10 +300,13 @@ fun ContinueReadingSection(book: Book) {
                 Button(
                     onClick = { /* TODO */ },
                     modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC2415E)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary, // BOTÓN NARANJA
+                        contentColor = MaterialTheme.colorScheme.onPrimary  // TEXTO NEGRO
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Continue reading")
+                    Text("Continue reading", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -290,13 +323,10 @@ fun BookHorizontalItem(
     Column(
         modifier = Modifier
             .width(itemWidth)
-            // APLICAMOS LA TRANSFORMACIÓN GRÁFICA
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 this.alpha = alpha
-                // El pivote por defecto es el centro, que es lo que queremos,
-                // para que crezca desde el medio.
             },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -306,7 +336,6 @@ fun BookHorizontalItem(
                 .fillMaxWidth()
                 .height(200.dp)
                 .clip(RoundedCornerShape(16.dp))
-                // Sombra suave para el elemento destacado
                 .shadow(
                     elevation = if (scale > 0.95f) 12.dp else 4.dp,
                     shape = RoundedCornerShape(16.dp),
@@ -317,7 +346,7 @@ fun BookHorizontalItem(
         Text(
             text = book.title,
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
@@ -339,9 +368,9 @@ fun BookCover(coverId: Int?, modifier: Modifier) {
     AsyncImage(
         model = url,
         contentDescription = "Book Cover",
-        modifier = modifier.background(Color.DarkGray),
+        modifier = modifier.background(MaterialTheme.colorScheme.surface),
         contentScale = ContentScale.Crop,
-        error = painterResource(id = android.R.drawable.ic_menu_report_image) // Placeholder si falla
+        error = painterResource(id = android.R.drawable.ic_menu_report_image)
     )
 }
 
@@ -354,7 +383,7 @@ fun SectionHeader(title: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White)
-        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.White)
+        Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground)
     }
 }

@@ -24,5 +24,8 @@ data class Book(
     @SerializedName("cover_i")
     val coverId: Int?, // ID numérico para construir la URL de la imagen
 
-    val language: List<String>?
+    val language: List<String>?,
+
+    @SerializedName("number_of_pages_median")
+    val numeroPaginas: Int? = null
 )

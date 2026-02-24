@@ -1,14 +1,32 @@
 package com.example.bookmark.ui.supaBase
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class Usuario(
-    val id: Long? = null, // int8 en Supabase es Long en Kotlin
+    val id: Long? = null,
     val nombre: String,
     val apellidos: String,
     val correoElectronico: String,
-    val perfilPublico: Boolean,
-    val fotoPerfil: String? = null // Puede ser nulo si no tienen foto
-    // Nota: He omitido 'contraseña' por seguridad, no es buena práctica traerla al cliente
+    @SerialName("contraseña")
+    val contrasena: String,
+    val fotoPerfil: String? = null,
+    val fotoBanner: String? = null,
+    val nickname: String,
+    // 👇 AÑADE ESTA LÍNEA 👇
+    val descripcion: String? = null
+)
+
+@Serializable
+data class MiLibro(
+    val id: Int? = null,
+    val id_usuario: Long,
+    @SerialName("book_key") val bookKey: String, // 👇 ¡AQUÍ ESTÁ EL CAMBIO! Tod0 en minúscula
+    val titulo: String,
+    val autor: String? = null,
+    val cover_id: Int? = null,
+    val estado: String,
+    val progreso_porcentaje: Int = 0,
+    val paginas_totales: Int? = null
 )

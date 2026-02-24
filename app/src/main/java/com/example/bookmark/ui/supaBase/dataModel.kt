@@ -27,5 +27,6 @@ data class MiLibro(
     val autor: String? = null,
     val cover_id: Int? = null,
     val estado: String,
-    val progreso_porcentaje: Int = 0
+    val progreso_porcentaje: Int = 0,
+    val paginas_totales: Int? = null
 )

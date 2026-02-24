@@ -22,6 +22,7 @@ fun NavGraph(
     bookViewModel: BookViewModel,
     isLoggedIn: Boolean
 ) {
+    // Determina si empezamos en el Login o en la pantalla principal de Libros
     val startDest = if (isLoggedIn) Screen.Books else Screen.Login
 
     NavHost(
@@ -29,53 +30,65 @@ fun NavGraph(
         startDestination = startDest,
         modifier = modifier
     ) {
+        // --- RUTA: LOGIN ---
         composable<Screen.Login> {
             LoginScreen(
                 onLoginSuccess = {
+                    // Al entrar con éxito, vamos a Books y borramos el Login del historial
                     navController.navigate(Screen.Books) { popUpTo(Screen.Login) { inclusive = true } }
                 },
                 onNavigateToRegister = { navController.navigate(Screen.Register) }
             )
         }
 
+        // --- RUTA: REGISTRO ---
         composable<Screen.Register> {
             RegisterScreen(
                 onRegisterSuccess = {
+                    // Al registrarse, vamos directo a la app principal
                     navController.navigate(Screen.Books) { popUpTo(Screen.Login) { inclusive = true } }
                 },
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
+        // --- RUTA: HOME / BOOKS (Feed principal) ---
         composable<Screen.Books> {
             BooksScreen(
                 viewModel = bookViewModel,
                 onLogout = {
+                    // Al cerrar sesión, volvemos al Login y limpiamos toda la pila de navegación
                     navController.navigate(Screen.Login) { popUpTo(0) { inclusive = true } }
                 }
             )
         }
 
-        // --- SOLUCIÓN ERROR SEARCH ---
+        // --- RUTA: BUSCADOR ---
         composable<Screen.Search> {
-            SearchScreen(bookViewModel, navController) // <-- Solo le faltaba la palabra navController
+            // Pasamos el navController para que al clicar un resultado vaya a detalles
+            SearchScreen(bookViewModel, navController)
         }
 
+        // --- RUTA: BIBLIOTECA (Tus libros guardados) ---
         composable<Screen.Library> {
-            BibliotecaScreen()
+            // ¡CAMBIO CLAVE!: Ahora le pasamos el navController para que los clics funcionen
+            BibliotecaScreen(navController = navController)
         }
 
+        // --- RUTA: PERFIL DE USUARIO ---
         composable<Screen.Profile> {
             UserScreen()
         }
 
-        // --- NUEVA RUTA PARA DETALLES ---
+        // --- RUTA: DETALLES DEL LIBRO ---
         composable<Screen.BookDetail> { backStackEntry ->
+            // Extraemos la información de la ruta (incluyendo el bookKey)
             val detail: Screen.BookDetail = backStackEntry.toRoute()
+
             BookDetailScreen(
-                bookKey = detail.bookKey,
+                bookKey = detail.bookKey, // Usamos la key para cargar el libro específico
                 viewModel = bookViewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() } // Botón para volver atrás
             )
         }
     }

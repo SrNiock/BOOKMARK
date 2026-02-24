@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.bookmark.ui.supaBase.AuthRepository
+import com.example.bookmark.ui.supaBase.MiLibro
 import com.example.bookmark.ui.utils.SessionManager
 import kotlinx.coroutines.launch
 
@@ -52,6 +53,9 @@ fun UserScreen() {
     var estaSubiendoPerfil by remember { mutableStateOf(false) }
     var estaSubiendoBanner by remember { mutableStateOf(false) }
 
+    val idActual = sessionManager.obtenerIdSesion() ?: 0L
+    var listaFavoritos by remember { mutableStateOf<List<MiLibro>>(emptyList()) } // Lista real de libros
+
     // --- CARGA INICIAL (Leer BD al entrar) ---
     LaunchedEffect(correoActual) {
         if (correoActual.isNotEmpty()) {
@@ -62,6 +66,11 @@ fun UserScreen() {
                 profileUrl = usuario.fotoPerfil
                 bannerUrl = usuario.fotoBanner
                 descripcionUsuario = usuario.descripcion ?: ""
+
+                // 👇 CARGA DE FAVORITOS AL ENTRAR AL PERFIL
+                authRepository.obtenerFavoritos(idActual).onSuccess { favs ->
+                    listaFavoritos = favs.take(4) // Nos aseguramos de coger máximo 4
+                }
             }.onFailure {
                 nicknameUsuario = "Error de conexión"
             }
@@ -277,10 +286,25 @@ fun UserScreen() {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            BookPlaceholderBox(modifier = Modifier.weight(1f))
-            BookPlaceholderBox(modifier = Modifier.weight(1f))
-            BookPlaceholderBox(modifier = Modifier.weight(1f))
-            BookPlaceholderBox(modifier = Modifier.weight(1f))
+            // 👇 NUEVO: Pintamos los libros si existen, o el cuadro vacío si no.
+            repeat(4) { index ->
+                val libro = listaFavoritos.getOrNull(index)
+
+                if (libro != null) {
+                    AsyncImage(
+                        model = "https://covers.openlibrary.org/b/id/${libro.cover_id}-L.jpg",
+                        contentDescription = libro.titulo,
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(0.7f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surface),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    BookPlaceholderBox(modifier = Modifier.weight(1f))
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(48.dp))

@@ -7,12 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
-@Serializable
-data class Favorito(
-    val id: Int? = null,
-    val usuario_id: Long,
-    val libro_id: Int
-)
+
 class AuthRepository {
 
     private val tablaUsuarios = client.from("Usuarios")
@@ -231,6 +226,145 @@ class AuthRepository {
                     }.decodeList<MiLibro>()
 
                 Result.success(libros)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+    // Busca usuarios por su nickname (ignorando mayúsculas y minúsculas)
+    suspend fun buscarUsuarios(query: String): Result<List<Usuario>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // 👇 AQUÍ ESTÁ EL CAMBIO: Pon la U mayúscula ("Usuarios")
+                val usuariosEncontrados = client.from("Usuarios")
+                    .select {
+                        filter {
+                            ilike("nickname", "%$query%")
+                        }
+                    }.decodeList<Usuario>()
+
+                Result.success(usuariosEncontrados)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+    suspend fun obtenerUsuarioPorId(idUsuario: Long): Result<Usuario> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val usuarios = client.from("Usuarios")
+                    .select { filter { eq("id", idUsuario) } }
+                    .decodeList<Usuario>()
+
+                if (usuarios.isNotEmpty()) {
+                    Result.success(usuarios.first())
+                } else {
+                    Result.failure(Exception("Usuario no encontrado"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+    suspend fun comprobarSiSigue(idSeguidor: Long, idSeguido: Long): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val relacion = client.from("seguidores")
+                    .select {
+                        filter {
+                            eq("seguidor_id", idSeguidor)
+                            eq("seguido_id", idSeguido)
+                        }
+                    }.decodeList<SeguidorRelacion>()
+
+                // Si la lista no está vacía, es que ya lo sigue
+                Result.success(relacion.isNotEmpty())
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    // 2. Empieza a seguir a un usuario
+    suspend fun seguirUsuario(idSeguidor: Long, idSeguido: Long): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val nuevaRelacion = SeguidorRelacion(seguidor_id = idSeguidor, seguido_id = idSeguido)
+                client.from("seguidores").insert(nuevaRelacion)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    // 3. Deja de seguir a un usuario
+    suspend fun dejarDeSeguirUsuario(idSeguidor: Long, idSeguido: Long): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                client.from("seguidores").delete {
+                    filter {
+                        eq("seguidor_id", idSeguidor)
+                        eq("seguido_id", idSeguido)
+                    }
+                }
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+    suspend fun contarSeguidores(idUsuario: Long): Result<Long> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val count = client.from("seguidores")
+                    .select { filter { eq("seguido_id", idUsuario) } }
+                    .decodeList<SeguidorRelacion>().size.toLong()
+                Result.success(count)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    // Cuenta a cuánta gente sigue este usuario
+    suspend fun contarSeguidos(idUsuario: Long): Result<Long> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val count = client.from("seguidores")
+                    .select { filter { eq("seguidor_id", idUsuario) } }
+                    .decodeList<SeguidorRelacion>().size.toLong()
+                Result.success(count)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun crearPublicacion(publicacion: Publicacion): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                client.from("publicaciones").insert(publicacion)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun obtenerFeedPublicaciones(): Result<List<PublicacionFeed>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val lista = client.from("publicaciones")
+                    .select {
+                        // Al pedir "*, Usuarios(*)", Supabase hace la magia de unir las dos tablas
+                        // usando la Foreign Key de usuario_id que creaste.
+                        // Nota: Dependiendo de tu versión del SDK, a veces basta solo con .select()
+                    }
+                    .decodeList<PublicacionFeed>()
+
+                // Le damos la vuelta a la lista para que las más nuevas salgan arriba
+                Result.success(lista.reversed())
             } catch (e: Exception) {
                 Result.failure(e)
             }

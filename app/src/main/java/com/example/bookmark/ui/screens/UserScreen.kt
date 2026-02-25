@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.SupervisedUserCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,19 +38,15 @@ import kotlinx.coroutines.launch
 @Composable
 fun UserScreen() {
     val scrollState = rememberScrollState()
-
-    // --- HERRAMIENTAS ---
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
     val authRepository = remember { AuthRepository() }
     val correoActual = sessionManager.obtenerCorreoSesion() ?: ""
     val coroutineScope = rememberCoroutineScope()
 
-    // --- ESTADOS DE LA PANTALLA ---
     var profileUrl by remember { mutableStateOf<String?>(null) }
     var bannerUrl by remember { mutableStateOf<String?>(null) }
     var nicknameUsuario by remember { mutableStateOf("Cargando...") }
-
     var descripcionUsuario by remember { mutableStateOf("") }
     var editandoDescripcion by remember { mutableStateOf(false) }
 
@@ -58,40 +55,47 @@ fun UserScreen() {
 
     val idActual = sessionManager.obtenerIdSesion() ?: 0L
     var listaFavoritos by remember { mutableStateOf<List<MiLibro>>(emptyList()) }
-
-    // 👇 NUEVOS ESTADOS PARA LOS CONTADORES
     var totalSeguidores by remember { mutableStateOf(0L) }
     var totalSeguidos by remember { mutableStateOf(0L) }
 
-    // --- CARGA INICIAL (Leer BD al entrar) ---
-    LaunchedEffect(correoActual) {
-        if (correoActual.isNotEmpty()) {
-            val resultado = authRepository.obtenerUsuario(correoActual)
-
-            resultado.onSuccess { usuario ->
-                nicknameUsuario = usuario.nickname
-                profileUrl = usuario.fotoPerfil
-                bannerUrl = usuario.fotoBanner
-                descripcionUsuario = usuario.descripcion ?: ""
-
-                // Carga de favoritos
-                authRepository.obtenerFavoritos(idActual).onSuccess { favs ->
-                    listaFavoritos = favs.take(4)
-                }
-
-                // 👇 CARGA DE SEGUIDORES Y SEGUIDOS
-                authRepository.contarSeguidores(idActual).onSuccess { totalSeguidores = it }
-                authRepository.contarSeguidos(idActual).onSuccess { totalSeguidos = it }
-
-            }.onFailure {
-                nicknameUsuario = "Error de conexión"
+    // BUG FIX #12: Si no hay correo de sesión, mostrar pantalla de no-sesión en lugar
+    // de intentar cargar datos con correo vacío y potencialmente crashear
+    if (correoActual.isEmpty()) {
+        Box(
+            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Default.SupervisedUserCircle,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(Modifier.height(16.dp))
+                Text("Inicia sesión para ver tu perfil", color = Color.Gray)
             }
-        } else {
-            nicknameUsuario = "Usuario no identificado"
+        }
+        return
+    }
+
+    LaunchedEffect(correoActual) {
+        authRepository.obtenerUsuario(correoActual).onSuccess { usuario ->
+            nicknameUsuario = usuario.nickname
+            profileUrl = usuario.fotoPerfil
+            bannerUrl = usuario.fotoBanner
+            descripcionUsuario = usuario.descripcion ?: ""
+
+            authRepository.obtenerFavoritos(idActual).onSuccess { favs ->
+                listaFavoritos = favs.take(4)
+            }
+            authRepository.contarSeguidores(idActual).onSuccess { totalSeguidores = it }
+            authRepository.contarSeguidos(idActual).onSuccess { totalSeguidos = it }
+        }.onFailure {
+            nicknameUsuario = "Error de conexión"
         }
     }
 
-    // --- LANZADORES DE LA GALERÍA ---
     val bannerPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
@@ -101,15 +105,20 @@ fun UserScreen() {
                 try {
                     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     if (bytes != null) {
-                        val nombreArchivo = "banner_$correoActual.jpg"
+                        // BUG FIX #13: El nombre de archivo usaba el correo completo (con @, .)
+                        // lo que puede causar problemas en Storage de Supabase.
+                        // Sanitizamos el correo para el nombre de archivo.
+                        val nombreArchivo = "banner_${correoActual.replace(Regex("[^a-zA-Z0-9]"), "_")}.jpg"
                         authRepository.subirImagenStorage(nombreArchivo, bytes).onSuccess { urlSubida ->
+                            // BUG FIX #14: Se añade un parámetro de cache-busting a la URL
+                            // para que Coil no use la imagen cacheada y muestre la nueva.
                             authRepository.actualizarFotoTabla(correoActual, "fotoBanner", urlSubida).onSuccess {
-                                bannerUrl = urlSubida
+                                bannerUrl = "$urlSubida?t=${System.currentTimeMillis()}"
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    println("❌ ERROR INTERNO BANNER: ${e.message}")
+                    println("❌ ERROR BANNER: ${e.message}")
                 } finally {
                     estaSubiendoBanner = false
                 }
@@ -126,15 +135,15 @@ fun UserScreen() {
                 try {
                     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     if (bytes != null) {
-                        val nombreArchivo = "perfil_$correoActual.jpg"
+                        val nombreArchivo = "perfil_${correoActual.replace(Regex("[^a-zA-Z0-9]"), "_")}.jpg"
                         authRepository.subirImagenStorage(nombreArchivo, bytes).onSuccess { urlSubida ->
                             authRepository.actualizarFotoTabla(correoActual, "fotoPerfil", urlSubida).onSuccess {
-                                profileUrl = urlSubida
+                                profileUrl = "$urlSubida?t=${System.currentTimeMillis()}"
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    println("❌ ERROR INTERNO PERFIL: ${e.message}")
+                    println("❌ ERROR PERFIL: ${e.message}")
                 } finally {
                     estaSubiendoPerfil = false
                 }
@@ -164,16 +173,30 @@ fun UserScreen() {
                     .height(160.dp)
                     .background(MaterialTheme.colorScheme.surface)
                     .clickable {
-                        bannerPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        bannerPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
                     },
                 contentAlignment = Alignment.Center
             ) {
                 if (!bannerUrl.isNullOrEmpty()) {
-                    AsyncImage(model = bannerUrl, contentDescription = "Banner", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    AsyncImage(
+                        model = bannerUrl,
+                        contentDescription = "Banner",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 } else {
-                    Text("Toca para añadir un Banner", color = Color.Gray)
+                    Text("Toca para añadir un banner", color = Color.Gray, fontSize = 13.sp)
                 }
-                if (estaSubiendoBanner) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                if (estaSubiendoBanner) {
+                    Box(
+                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
 
             Box(
@@ -185,16 +208,30 @@ fun UserScreen() {
                     .background(MaterialTheme.colorScheme.surface)
                     .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
                     .clickable {
-                        profilePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        profilePickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
                     },
                 contentAlignment = Alignment.Center
             ) {
                 if (!profileUrl.isNullOrEmpty()) {
-                    AsyncImage(model = profileUrl, contentDescription = "Perfil", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    AsyncImage(
+                        model = profileUrl,
+                        contentDescription = "Foto de perfil",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 } else {
-                    Text("Foto", color = Color.Gray)
+                    Icon(Icons.Default.SupervisedUserCircle, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(50.dp))
                 }
-                if (estaSubiendoPerfil) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                if (estaSubiendoPerfil) {
+                    Box(
+                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                    }
+                }
             }
         }
 
@@ -202,7 +239,12 @@ fun UserScreen() {
 
         // --- SECCIÓN 2: INFO DEL USUARIO ---
         Column(modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth()) {
-            Text(text = nicknameUsuario, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+            Text(
+                text = "@$nicknameUsuario",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
 
             if (editandoDescripcion) {
                 OutlinedTextField(
@@ -211,6 +253,8 @@ fun UserScreen() {
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     colors = textFieldColors,
                     placeholder = { Text("Escribe algo sobre ti...", color = Color.Gray) },
+                    // BUG FIX #15: maxLines limita la descripción a algo razonable
+                    maxLines = 4,
                     trailingIcon = {
                         IconButton(onClick = {
                             editandoDescripcion = false
@@ -224,9 +268,9 @@ fun UserScreen() {
                 )
             } else {
                 Text(
-                    text = if (descripcionUsuario.isEmpty()) "Añade una descripción sobre ti... ✏️" else descripcionUsuario,
+                    text = if (descripcionUsuario.isEmpty()) "Toca para añadir una descripción ✏️" else descripcionUsuario,
                     fontSize = 14.sp,
-                    color = Color.LightGray,
+                    color = if (descripcionUsuario.isEmpty()) Color.Gray else Color.LightGray,
                     modifier = Modifier.padding(top = 8.dp).clickable { editandoDescripcion = true }
                 )
             }
@@ -239,32 +283,62 @@ fun UserScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .padding(vertical = 16.dp),
+                .padding(vertical = 20.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = totalSeguidores.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                Text(text = "Seguidores", fontSize = 14.sp, color = Color.Gray)
+                Text(
+                    text = totalSeguidores.toString(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(text = "Seguidores", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            VerticalDivider(color = Color.DarkGray, modifier = Modifier.height(30.dp).width(1.dp))
+            VerticalDivider(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.height(32.dp).width(1.dp)
+            )
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = totalSeguidos.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                Text(text = "Seguidos", fontSize = 14.sp, color = Color.Gray)
+                Text(
+                    text = totalSeguidos.toString(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(text = "Seguidos", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- SECCIÓN 4: LOS 4 LIBROS FAVORITOS ---
-        Text(
-            text = "Mis 4 Favoritos", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-        )
+        // --- SECCIÓN 4: FAVORITOS ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Mis 4 Favoritos",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = "Mantén pulsado para quitar",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -278,15 +352,15 @@ fun UserScreen() {
 
                     Box(modifier = Modifier.weight(1f)) {
                         AsyncImage(
-                            model = "https://covers.openlibrary.org/b/id/${libro.cover_id}-L.jpg",
+                            model = "https://covers.openlibrary.org/b/id/${libro.cover_id}-M.jpg",
                             contentDescription = libro.titulo,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(0.7f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surface)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .combinedClickable(
-                                    onClick = { /* Navegar a detalles si quieres */ },
+                                    onClick = { /* navegar si se quiere */ },
                                     onLongClick = { mostrarMenuFav = true }
                                 ),
                             contentScale = ContentScale.Crop
@@ -294,10 +368,11 @@ fun UserScreen() {
 
                         DropdownMenu(
                             expanded = mostrarMenuFav,
-                            onDismissRequest = { mostrarMenuFav = false }
+                            onDismissRequest = { mostrarMenuFav = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Eliminar de favoritos", color = Color.Red) },
+                                text = { Text("Quitar de favoritos", color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     mostrarMenuFav = false
                                     coroutineScope.launch {
@@ -326,11 +401,11 @@ fun BookPlaceholderBox(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .aspectRatio(0.7f)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, Color.DarkGray, RoundedCornerShape(8.dp)),
+            .border(1.dp, MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Text("Libro", color = Color.Gray, fontSize = 12.sp)
+        Text("+", color = Color.Gray, fontSize = 20.sp, fontWeight = FontWeight.Light)
     }
 }

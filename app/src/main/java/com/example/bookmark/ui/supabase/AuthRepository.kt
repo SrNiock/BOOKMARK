@@ -93,13 +93,15 @@ class AuthRepository {
 
     // --- 6. BIBLIOTECA: OBTENER UN LIBRO CONCRETO POR USUARIO + BOOKKEY ---
     // Usada en BookDetailScreen para cargar el progreso actual del libro
+    // --- 6. BIBLIOTECA: OBTENER UN LIBRO CONCRETO POR USUARIO + BOOKKEY ---
     suspend fun obtenerLibroDeBiblioteca(idUsuario: Long, bookKey: String): Result<MiLibro> {
         return withContext(Dispatchers.IO) {
             try {
                 val lista = tablaBiblioteca.select {
                     filter {
                         eq("id_usuario", idUsuario)
-                        eq("bookKey", bookKey)
+                        // 👇 CAMBIA "bookKey" por "book_key" (con guion bajo)
+                        eq("book_key", bookKey)
                     }
                 }.decodeList<MiLibro>()
 
@@ -144,7 +146,19 @@ class AuthRepository {
             }
         }
     }
-
+    // --- 8.5 BIBLIOTECA: AGREGAR NUEVO LIBRO ---
+    suspend fun agregarLibroABiblioteca(libro: MiLibro): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Usamos insert en lugar de upsert para garantizar la creación de la fila
+                tablaBiblioteca.insert(libro)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                println("❌ Error al insertar libro: ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
     // --- 9. BIBLIOTECA: ACTUALIZAR SOLO EL PROGRESO ---
     suspend fun actualizarProgreso(idLibro: Int, nuevoProgreso: Int, nuevoEstado: String): Result<Unit> {
         return withContext(Dispatchers.IO) {

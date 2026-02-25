@@ -134,10 +134,12 @@ fun BooksScreen(viewModel: BookViewModel, navController: NavHostController, onLo
                 usuarioActualId = usuario.id
                 usuario.id?.let { id ->
                     authRepository.obtenerIdsSeguidos(id).onSuccess { idsSeguidos = it }
-                }
+                } ?: viewModel.obtenerLibrosDefault() // Prevención
+            }.onFailure {
+                // 👇 CLAVE: Si la base de datos tarda o falla, carga los recomendados por defecto
+                viewModel.obtenerLibrosDefault()
             }
         } else {
-            // Sin usuario: cargamos populares una sola vez
             viewModel.obtenerLibrosDefault()
         }
     }
@@ -335,6 +337,14 @@ fun BookContent(
                                 navController = navController,
                                 listState = carouselListState
                             )
+                        } else {
+                            // 👇 ESTO EVITA EL HUECO EN BLANCO SI TODO FALLA
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(220.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Vuelve a intentarlo deslizando hacia abajo", color = Color.Gray)
+                            }
                         }
                     }
 
@@ -511,7 +521,12 @@ fun BookCarouselRow(
             val scale by remember {
                 derivedStateOf {
                     val layoutInfo = listState.layoutInfo
-                    val viewportCenter = layoutInfo.viewportEndOffset / 2f
+                    val viewportEnd = layoutInfo.viewportEndOffset
+
+                    // 👇 BLOQUEO ANTI-CRASH: Si el ancho es 0, devolvemos un tamaño por defecto
+                    if (viewportEnd <= 0) return@derivedStateOf 0.85f
+
+                    val viewportCenter = viewportEnd / 2f
                     val itemInfo = layoutInfo.visibleItemsInfo.find { it.index == index }
 
                     if (itemInfo != null) {

@@ -66,7 +66,7 @@ fun BookDetailScreen(
     var sliderPagina by remember { mutableStateOf(0f) }
     var guardandoProgreso by remember { mutableStateOf(false) }
     var progresoGuardado by remember { mutableStateOf(false) }
-
+    var cargandoDesdeBD by remember { mutableStateOf(true) }
     val recomendadosState by viewModel.recommendadosState
     val searchState by viewModel.searchState
 
@@ -84,7 +84,9 @@ fun BookDetailScreen(
 
     // Si el libro no está en memoria (viene desde biblioteca), lo construimos desde BD
     LaunchedEffect(bookKey) {
-        if (idActual != 0L) {
+        cargandoDesdeBD = true // 👈 Empezamos a cargar
+
+        if (idActual != 0L && idActual != -1L) {
             authRepository.obtenerLibroDeBiblioteca(idActual, bookKey)
                 .onSuccess { miLibro ->
                     libroEnBiblioteca = miLibro
@@ -106,6 +108,7 @@ fun BookDetailScreen(
                     }
                 }
         }
+
         // Cargar páginas reales una vez tengamos datos del libro
         val libroActual = snapshotBook
         if (libroActual != null) {
@@ -114,6 +117,8 @@ fun BookDetailScreen(
                 autor  = libroActual.authorNames?.firstOrNull()
             )
         }
+
+        cargandoDesdeBD = false // 👈 Terminamos de cargar
     }
 
     // Cuando snapshotBook llega desde BD (asíncrono), disparar carga de páginas
@@ -147,9 +152,11 @@ fun BookDetailScreen(
                     cover_id            = book.coverId,
                     estado              = estadoElegido,
                     progreso_porcentaje = 0,
-                    paginas_totales     = paginasReales ?: book.numeroPaginas  // real o fallback
+                    paginas_totales     = paginasReales ?: book.numeroPaginas
                 )
-                authRepository.actualizarLibroEnBiblioteca(miLibro).onSuccess {
+
+                // 👇 AHORA LLAMAMOS A LA FUNCIÓN DE INSERTAR
+                authRepository.agregarLibroABiblioteca(miLibro).onSuccess {
                     val nombreLista = when (estadoElegido) {
                         "deseado" -> "Wishlist"
                         "leyendo" -> "Leyendo"
@@ -195,7 +202,8 @@ fun BookDetailScreen(
     ) { padding ->
 
         if (book == null) {
-            val isLoading = recomendadosState is BookUiState.Loading || searchState is BookUiState.Loading
+            val isLoading = recomendadosState is BookUiState.Loading || searchState is BookUiState.Loading || cargandoDesdeBD
+
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (isLoading) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)

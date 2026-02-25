@@ -46,7 +46,8 @@ class BookViewModel : ViewModel() {
     @Volatile
     private var isCurrentlyLoading = false
 
-
+    private val consultasPorDefecto = listOf("bestseller", "fantasy", "fiction", "mystery", "adventure", "tolkien")
+    private fun obtenerQueryPorDefecto(): String = consultasPorDefecto.random()
 
     private var usuarioActualId: Long? = null
     private var ultimoUsuarioCargado: Long? = null
@@ -152,6 +153,12 @@ class BookViewModel : ViewModel() {
                     !keysEnBiblioteca.contains(book.key) && book.coverId != null
                 }
 
+                // 👇 EL SALVAVIDAS MEJORADO: Si la API devuelve menos de 10 resultados, forzamos una búsqueda genérica
+                if (filtrados.size < 10 && query !in consultasPorDefecto) {
+                    ejecutarBusquedaRecomendados(obtenerQueryPorDefecto())
+                    return@launch
+                }
+
                 val ordenados = if (autoresRelevantes.isNotEmpty()) {
                     val apellidosPorPrioridad = autoresRelevantes
                         .map { it.trim().split(" ").last().lowercase() }
@@ -171,7 +178,8 @@ class BookViewModel : ViewModel() {
                     filtrados
                 }
 
-                _recommendadosState.value = BookUiState.Success(ordenados.take(15))
+                // 👇 AUMENTAMOS EL LÍMITE: Ahora mostrará hasta 30 libros en el carrusel
+                _recommendadosState.value = BookUiState.Success(ordenados.take(30))
             } catch (e: Exception) {
                 _recommendadosState.value = BookUiState.Error("Error de red")
             }

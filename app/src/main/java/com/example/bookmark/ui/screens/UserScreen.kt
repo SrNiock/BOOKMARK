@@ -136,7 +136,7 @@ fun UserScreen() {
                         }
                     }
                 } catch (e: Exception) {
-                    println("❌ ERROR PERFIL: ${e.message}")
+                    println("ERROR PERFIL: ${e.message}")
                 } finally {
                     estaSubiendoPerfil = false
                 }

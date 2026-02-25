@@ -137,7 +137,6 @@ fun BibliotecaScreen(navController: NavHostController) {
         }
     }
 
-    // ── DIÁLOGO PROGRESO ──
     if (mostrarDialogo && libroSeleccionado != null) {
         val libro = libroSeleccionado!!
 
@@ -146,20 +145,17 @@ fun BibliotecaScreen(navController: NavHostController) {
         var inputTexto       by remember(libro.id) { mutableStateOf("") }
         var sliderValor      by remember(libro.id) { mutableStateOf(0f) }
 
-        // Inicializa slider e input cuando ya tenemos el total (sea de BD o de Google)
         fun inicializarDesdeTotal(total: Int) {
             val paginaActual = ((libro.progreso_porcentaje / 100f) * total).toInt()
             sliderValor = paginaActual.toFloat()
             inputTexto  = paginaActual.toString()
         }
 
-        // Si ya teníamos el total en BD, inicializamos directamente
         LaunchedEffect(libro.id) {
             val totalEnBD = libro.paginas_totales
             if (totalEnBD != null && totalEnBD > 0) {
                 inicializarDesdeTotal(totalEnBD)
             } else {
-                // Pedimos a Google Books
                 val paginas = obtenerNumeroPaginasGoogleBooks(
                     titulo = libro.titulo,
                     autor  = libro.autor
@@ -168,13 +164,11 @@ fun BibliotecaScreen(navController: NavHostController) {
                 if (paginas != null && paginas > 0) {
                     totalPaginas = paginas
                     inicializarDesdeTotal(paginas)
-                    // Persistimos para no volver a pedirlo
                     authRepository.actualizarLibroEnBiblioteca(
                         libro.copy(paginas_totales = paginas)
                     )
                     libroSeleccionado = libro.copy(paginas_totales = paginas)
                 } else {
-                    // Google no respondió: modo porcentaje directo
                     sliderValor = libro.progreso_porcentaje.toFloat()
                     inputTexto  = libro.progreso_porcentaje.toString()
                 }
@@ -184,7 +178,6 @@ fun BibliotecaScreen(navController: NavHostController) {
         val total    = totalPaginas ?: 0
         val rangoMax = if (total > 0) total.toFloat() else 100f
 
-        // Porcentaje calculado en tiempo real
         val porcentaje = if (total > 0)
             ((sliderValor / total) * 100).toInt().coerceIn(0, 100)
         else
@@ -217,7 +210,6 @@ fun BibliotecaScreen(navController: NavHostController) {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
-                    // ── Badge porcentaje ──
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -261,7 +253,6 @@ fun BibliotecaScreen(navController: NavHostController) {
                         }
                     }
 
-                    // ── Slider ──
                     Slider(
                         value         = sliderValor.coerceIn(0f, rangoMax),
                         onValueChange = { v ->
@@ -279,7 +270,6 @@ fun BibliotecaScreen(navController: NavHostController) {
                         )
                     )
 
-                    // ── Campo: número de página ──
                     OutlinedTextField(
                         value         = inputTexto,
                         onValueChange = { v ->
@@ -361,7 +351,6 @@ fun BibliotecaScreen(navController: NavHostController) {
         )
     }
 
-    // ── DIÁLOGO RESEÑA ──
     if (mostrarDialogoResena && libroSeleccionado != null) {
         val libro = libroSeleccionado!!
         AlertDialog(
@@ -472,11 +461,10 @@ fun BibliotecaScreen(navController: NavHostController) {
 
         Column(modifier = Modifier.padding(paddingValues).fillMaxSize(), verticalArrangement = Arrangement.Top) {
 
-            // ── CABECERA ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(72.dp) // altura fija — los tabs nunca se mueven
+                    .height(72.dp)
                     .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -486,7 +474,6 @@ fun BibliotecaScreen(navController: NavHostController) {
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                // Contador inline como badge — no añade altura
                 if (!cargando && listaLibros.isNotEmpty()) {
                     Spacer(Modifier.width(10.dp))
                     Box(
@@ -505,7 +492,6 @@ fun BibliotecaScreen(navController: NavHostController) {
                 }
             }
 
-            // ── TABS — estilo coherente con BooksScreen ──
             TabRow(
                 selectedTabIndex = tabIndex,
                 containerColor = Color.Transparent,
@@ -536,7 +522,6 @@ fun BibliotecaScreen(navController: NavHostController) {
 
             Spacer(Modifier.height(8.dp))
 
-            // ── CONTENIDO — weight(1f) para que no empuje los tabs al cambiar layout ──
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (cargando) {
                     if (tabIndex == 0) {
@@ -626,14 +611,11 @@ fun BibliotecaScreen(navController: NavHostController) {
                         }
                     }
                 }
-            } // cierre Box weight(1f)
+            }
         }
     }
 }
 
-// ─────────────────────────────────────────────
-// ITEM LEYENDO — rediseñado
-// ─────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibroBibliotecaItem(
@@ -664,7 +646,6 @@ fun LibroBibliotecaItem(
             elevation = CardDefaults.cardElevation(0.dp)
         ) {
             Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Portada con sombra de color primario
                 AsyncImage(
                     model = "https://covers.openlibrary.org/b/id/${libro.cover_id}-M.jpg",
                     contentDescription = libro.titulo,
@@ -696,7 +677,6 @@ fun LibroBibliotecaItem(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Barra de progreso
                     LinearProgressIndicator(
                         progress = { libro.progreso_porcentaje / 100f },
                         modifier = Modifier
@@ -712,7 +692,6 @@ fun LibroBibliotecaItem(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Badge de porcentaje
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
@@ -762,9 +741,6 @@ fun LibroBibliotecaItem(
     }
 }
 
-// ─────────────────────────────────────────────
-// ITEM CUADRÍCULA — rediseñado
-// ─────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibroGridItem(
@@ -840,9 +816,6 @@ fun LibroGridItem(
     }
 }
 
-// ─────────────────────────────────────────────
-// ESQUELETOS
-// ─────────────────────────────────────────────
 @Composable
 fun LibroBibliotecaSkeletonItem(alpha: Float) {
     Card(

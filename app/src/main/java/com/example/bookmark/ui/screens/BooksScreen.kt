@@ -106,9 +106,7 @@ import com.example.bookmark.ui.utils.SessionManager
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
-// ─────────────────────────────────────────────
 // PANTALLA PRINCIPAL
-// ─────────────────────────────────────────────
 @Composable
 fun BooksScreen(viewModel: BookViewModel, navController: NavHostController, onLogout: () -> Unit) {
     val recomendadosState by viewModel.recommendadosState
@@ -121,7 +119,6 @@ fun BooksScreen(viewModel: BookViewModel, navController: NavHostController, onLo
     var usuarioActualId by remember { mutableStateOf<Long?>(null) }
     var idsSeguidos by remember { mutableStateOf<List<Long>>(emptyList()) }
 
-    // EFECTO 1: Carga inicial — feed + identidad del usuario
     LaunchedEffect(Unit) {
         authRepository.obtenerFeedPublicaciones().onSuccess {
             publicaciones = it
@@ -134,9 +131,8 @@ fun BooksScreen(viewModel: BookViewModel, navController: NavHostController, onLo
                 usuarioActualId = usuario.id
                 usuario.id?.let { id ->
                     authRepository.obtenerIdsSeguidos(id).onSuccess { idsSeguidos = it }
-                } ?: viewModel.obtenerLibrosDefault() // Prevención
+                } ?: viewModel.obtenerLibrosDefault()
             }.onFailure {
-                // 👇 CLAVE: Si la base de datos tarda o falla, carga los recomendados por defecto
                 viewModel.obtenerLibrosDefault()
             }
         } else {
@@ -144,8 +140,6 @@ fun BooksScreen(viewModel: BookViewModel, navController: NavHostController, onLo
         }
     }
 
-    // EFECTO 2: Solo se dispara cuando se resuelve el ID del usuario.
-    // El ViewModel ignora llamadas repetidas gracias a ultimoUsuarioCargado.
     LaunchedEffect(usuarioActualId) {
         usuarioActualId?.let { viewModel.cargarRecomendaciones(it) }
     }
@@ -166,9 +160,7 @@ fun BooksScreen(viewModel: BookViewModel, navController: NavHostController, onLo
     }
 }
 
-// ─────────────────────────────────────────────
 // TOP BAR
-// ─────────────────────────────────────────────
 @Composable
 fun NoteReaderTopBar(onLogout: () -> Unit) {
     val context = LocalContext.current
@@ -272,9 +264,7 @@ fun NoteReaderTopBar(onLogout: () -> Unit) {
     }
 }
 
-// ─────────────────────────────────────────────
-// CONTENIDO PRINCIPAL (TABS + FEED)
-// ─────────────────────────────────────────────
+// CONTENIDO PRINCIPAL
 @Composable
 fun BookContent(
     uiState: BookUiState,
@@ -309,7 +299,7 @@ fun BookContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
-        // SECCIÓN 1: CARRUSEL DE RECOMENDACIONES
+        // CARRUSEL
         item(key = "seccion_descubrir") {
             Spacer(modifier = Modifier.height(8.dp))
             SectionHeader(title = if (usuarioActualId != null) "Recomendados para ti" else "Descubrir")
@@ -338,7 +328,6 @@ fun BookContent(
                                 listState = carouselListState
                             )
                         } else {
-                            // 👇 ESTO EVITA EL HUECO EN BLANCO SI TODO FALLA
                             Box(
                                 modifier = Modifier.fillMaxWidth().height(220.dp),
                                 contentAlignment = Alignment.Center
@@ -361,7 +350,7 @@ fun BookContent(
             }
         }
 
-        // SECCIÓN 2: TABS
+        // TABS
         item(key = "tabs_feed") {
             Spacer(modifier = Modifier.height(24.dp))
             TabRow(
@@ -394,7 +383,7 @@ fun BookContent(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // SECCIÓN 3: FEED SOCIAL
+        // FEED SOCIAL
         if (cargandoFeed) {
             item {
                 Box(
@@ -449,9 +438,6 @@ fun BookContent(
     }
 }
 
-// ─────────────────────────────────────────────
-// SKELETON (SHIMMER)
-// ─────────────────────────────────────────────
 @Composable
 fun BookSkeletonItem(alpha: Float) {
     Column(
@@ -490,9 +476,9 @@ fun BookSkeletonItem(alpha: Float) {
     }
 }
 
-// ─────────────────────────────────────────────
+
 // CARRUSEL DE LIBROS
-// ─────────────────────────────────────────────
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BookCarouselRow(
@@ -523,7 +509,6 @@ fun BookCarouselRow(
                     val layoutInfo = listState.layoutInfo
                     val viewportEnd = layoutInfo.viewportEndOffset
 
-                    // 👇 BLOQUEO ANTI-CRASH: Si el ancho es 0, devolvemos un tamaño por defecto
                     if (viewportEnd <= 0) return@derivedStateOf 0.85f
 
                     val viewportCenter = viewportEnd / 2f
@@ -560,9 +545,8 @@ fun BookCarouselRow(
     }
 }
 
-// ─────────────────────────────────────────────
+
 // ITEM DEL CARRUSEL
-// ─────────────────────────────────────────────
 @Composable
 fun BookHorizontalItem(
     book: Book,
@@ -586,7 +570,6 @@ fun BookHorizontalItem(
             },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // CORRECCIÓN: shadow ANTES de clip para que sea visible
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -634,9 +617,7 @@ fun BookHorizontalItem(
     }
 }
 
-// ─────────────────────────────────────────────
 // PORTADA DEL LIBRO
-// ─────────────────────────────────────────────
 @Composable
 fun BookCover(coverId: Int?, modifier: Modifier) {
     val url = if (coverId != null) "https://covers.openlibrary.org/b/id/$coverId-L.jpg" else null
@@ -658,9 +639,6 @@ fun BookCover(coverId: Int?, modifier: Modifier) {
     )
 }
 
-// ─────────────────────────────────────────────
-// CABECERA DE SECCIÓN
-// ─────────────────────────────────────────────
 @Composable
 fun SectionHeader(title: String) {
     Row(
@@ -679,9 +657,7 @@ fun SectionHeader(title: String) {
     }
 }
 
-// ─────────────────────────────────────────────
 // TARJETA DE PUBLICACIÓN
-// ─────────────────────────────────────────────
 @Composable
 fun PublicacionCard(
     publicacion: PublicacionFeed,
@@ -691,22 +667,14 @@ fun PublicacionCard(
     val authRepository = remember { AuthRepository() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-
-    // Estados de Like
     var isLiked by remember { mutableStateOf(false) }
     var likesCount by remember { mutableStateOf(0L) }
-
-    // CORRECCIÓN: Estado de Bookmark con persistencia real
     var isSaved by remember { mutableStateOf(false) }
-
-    // Estados de Comentarios
     var comentariosExpandidos by remember { mutableStateOf(false) }
     var listaComentarios by remember { mutableStateOf<List<ComentarioFeed>>(emptyList()) }
     var cargandoComentarios by remember { mutableStateOf(false) }
     var textoNuevoComentario by remember { mutableStateOf("") }
 
-    // CORRECCIÓN: Solo cargamos likes y estado inicial de bookmark.
-    // Los comentarios se cargan al abrir la sección para no desperdiciar llamadas.
     LaunchedEffect(publicacion.id, usuarioActualId) {
         if (publicacion.id != null) {
             authRepository.contarLikes(publicacion.id).onSuccess { likesCount = it }
@@ -715,7 +683,7 @@ fun PublicacionCard(
                 authRepository.comprobarSiDioLike(usuarioActualId, publicacion.id)
                     .onSuccess { isLiked = it }
 
-                // Cargamos si ya guardó esta publicación
+
                 authRepository.comprobarSiGuardado(usuarioActualId, publicacion.id)
                     .onSuccess { isSaved = it }
             }
@@ -731,7 +699,6 @@ fun PublicacionCard(
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
 
-            // --- 1. CABECERA: Autor de la reseña ---
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -786,7 +753,6 @@ fun PublicacionCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- 2. CONTENIDO: El libro ---
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -841,7 +807,6 @@ fun PublicacionCard(
                 }
             }
 
-            // --- 3. RESEÑA (Estilo cita) ---
             if (publicacion.texto.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -865,7 +830,6 @@ fun PublicacionCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- 4. BOTONES DE INTERACCIÓN ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -873,7 +837,6 @@ fun PublicacionCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
 
-                    // LIKE (optimista con rollback)
                     IconButton(onClick = {
                         if (usuarioActualId != null && publicacion.id != null) {
                             isLiked = !isLiked
@@ -905,10 +868,8 @@ fun PublicacionCard(
 
                     Spacer(modifier = Modifier.width(16.dp))
 
-                    // COMENTAR — carga comentarios solo al abrir
                     IconButton(onClick = {
                         comentariosExpandidos = !comentariosExpandidos
-                        // CORRECCIÓN: solo cargamos cuando se expande y la lista está vacía
                         if (comentariosExpandidos && listaComentarios.isEmpty() && publicacion.id != null) {
                             coroutineScope.launch {
                                 cargandoComentarios = true
@@ -932,7 +893,6 @@ fun PublicacionCard(
                     )
                 }
 
-                // CORRECCIÓN: Bookmark con persistencia real (optimista con rollback)
                 IconButton(onClick = {
                     if (usuarioActualId != null && publicacion.id != null) {
                         isSaved = !isSaved
@@ -943,7 +903,7 @@ fun PublicacionCard(
                                 authRepository.eliminarPublicacionGuardada(usuarioActualId, publicacion.id)
 
                             if (res.isFailure) {
-                                isSaved = !isSaved // Rollback si falla
+                                isSaved = !isSaved
                             }
                         }
                     }
@@ -957,7 +917,6 @@ fun PublicacionCard(
                 }
             }
 
-            // --- 5. SECCIÓN DE COMENTARIOS ---
             AnimatedVisibility(
                 visible = comentariosExpandidos,
                 enter = expandVertically(),
@@ -973,7 +932,6 @@ fun PublicacionCard(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // A) CAMPO PARA NUEVO COMENTARIO
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -1036,7 +994,6 @@ fun PublicacionCard(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // B) LISTA DE COMENTARIOS
                     if (cargandoComentarios) {
                         CircularProgressIndicator(
                             modifier = Modifier

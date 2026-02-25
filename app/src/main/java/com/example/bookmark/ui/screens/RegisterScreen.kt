@@ -24,10 +24,9 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun RegisterScreen(
-    onRegisterSuccess: () -> Unit, // Navegar al inicio tras registrarse
-    onNavigateBack: () -> Unit // Volver al login
+    onRegisterSuccess: () -> Unit,
+    onNavigateBack: () -> Unit
 ) {
-    // Estados para los campos de texto
     var nombre by remember { mutableStateOf("") }
     var apellidos by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("") }
@@ -41,28 +40,26 @@ fun RegisterScreen(
     val coroutineScope = rememberCoroutineScope()
     val authRepository = remember { AuthRepository() }
 
-    // Colores dinámicos para los campos de texto
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = MaterialTheme.colorScheme.onBackground,
         unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-        focusedBorderColor = MaterialTheme.colorScheme.primary, // Borde Naranja al tocar
-        unfocusedBorderColor = Color.DarkGray, // Borde gris en reposo
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = Color.DarkGray,
         cursorColor = MaterialTheme.colorScheme.primary,
         focusedLabelColor = MaterialTheme.colorScheme.primary,
         unfocusedLabelColor = Color.Gray
     )
 
-    // Usamos verticalScroll por si la pantalla del móvil es pequeña
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background) // Fondo Negro profundo
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Título de la pantalla
         Text(
             text = "Crear Cuenta",
             style = MaterialTheme.typography.headlineMedium,
@@ -149,7 +146,6 @@ fun RegisterScreen(
                         nickname = nickname,
                         correoElectronico = correo,
                         contrasena = contrasena,
-                        // fotoPerfil y fotoBanner ya son null por defecto
                     )
 
                     coroutineScope.launch {
@@ -171,8 +167,8 @@ fun RegisterScreen(
                 .height(56.dp),
             enabled = !isLoading,
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary, // Naranja
-                contentColor = MaterialTheme.colorScheme.onPrimary // Negro
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ),
             shape = RoundedCornerShape(14.dp)
         ) {

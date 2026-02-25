@@ -58,8 +58,6 @@ fun UserScreen() {
     var totalSeguidores by remember { mutableStateOf(0L) }
     var totalSeguidos by remember { mutableStateOf(0L) }
 
-    // BUG FIX #12: Si no hay correo de sesión, mostrar pantalla de no-sesión en lugar
-    // de intentar cargar datos con correo vacío y potencialmente crashear
     if (correoActual.isEmpty()) {
         Box(
             Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -105,20 +103,15 @@ fun UserScreen() {
                 try {
                     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     if (bytes != null) {
-                        // BUG FIX #13: El nombre de archivo usaba el correo completo (con @, .)
-                        // lo que puede causar problemas en Storage de Supabase.
-                        // Sanitizamos el correo para el nombre de archivo.
                         val nombreArchivo = "banner_${correoActual.replace(Regex("[^a-zA-Z0-9]"), "_")}.jpg"
                         authRepository.subirImagenStorage(nombreArchivo, bytes).onSuccess { urlSubida ->
-                            // BUG FIX #14: Se añade un parámetro de cache-busting a la URL
-                            // para que Coil no use la imagen cacheada y muestre la nueva.
                             authRepository.actualizarFotoTabla(correoActual, "fotoBanner", urlSubida).onSuccess {
                                 bannerUrl = "$urlSubida?t=${System.currentTimeMillis()}"
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    println("❌ ERROR BANNER: ${e.message}")
+                    println("ERROR BANNER: ${e.message}")
                 } finally {
                     estaSubiendoBanner = false
                 }
@@ -165,7 +158,7 @@ fun UserScreen() {
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
     ) {
-        // --- SECCIÓN 1: BANNER Y FOTO DE PERFIL ---
+        //BANNER Y FOTO DE PERFIL
         Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
             Box(
                 modifier = Modifier
@@ -237,7 +230,7 @@ fun UserScreen() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- SECCIÓN 2: INFO DEL USUARIO ---
+        //INFO DEL USUARIO
         Column(modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth()) {
             Text(
                 text = "@$nicknameUsuario",
@@ -253,7 +246,6 @@ fun UserScreen() {
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     colors = textFieldColors,
                     placeholder = { Text("Escribe algo sobre ti...", color = Color.Gray) },
-                    // BUG FIX #15: maxLines limita la descripción a algo razonable
                     maxLines = 4,
                     trailingIcon = {
                         IconButton(onClick = {
@@ -278,7 +270,6 @@ fun UserScreen() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- SECCIÓN 3: SEGUIDORES Y SEGUIDOS ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,7 +308,6 @@ fun UserScreen() {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- SECCIÓN 4: FAVORITOS ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()

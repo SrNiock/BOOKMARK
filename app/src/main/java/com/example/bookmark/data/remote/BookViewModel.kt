@@ -25,24 +25,19 @@ class BookViewModel : ViewModel() {
     private val repository = BookRepository()
     private val authRepository = AuthRepository()
 
-    // Estado para la pantalla de Búsqueda
+    // Estado pantalla  Búsqueda
     private var _searchState: MutableState<BookUiState> =
         mutableStateOf(BookUiState.Success(emptyList()))
     val searchState: State<BookUiState> = _searchState
 
-    // Estado exclusivo para el Carrusel de Recomendados
+    // Estado Carrusel
     private var _recommendadosState: MutableState<BookUiState> =
         mutableStateOf(BookUiState.Loading)
     val recommendadosState: State<BookUiState> = _recommendadosState
 
-    // Variables de control
     private var searchJob: Job? = null
     private var keysEnBiblioteca: List<String> = emptyList()
     private var autoresRelevantes: List<String> = emptyList()
-
-    // BUG FIX: @Volatile garantiza que las escrituras desde una corrutina
-    // sean inmediatamente visibles para todas las demás, eliminando el race condition
-    // donde dos corrutinas podían leer `false` antes de que la primera escribiera `true`.
     @Volatile
     private var isCurrentlyLoading = false
 
@@ -51,19 +46,12 @@ class BookViewModel : ViewModel() {
 
     private var usuarioActualId: Long? = null
     private var ultimoUsuarioCargado: Long? = null
-
-    // Paginación para Búsqueda
     private var currentPage = 1
     private var currentSearchQuery = ""
     private var _isLastPage = mutableStateOf(false)
     val isLastPage: State<Boolean> = _isLastPage
     private val accumulatedSearchBooks = mutableListOf<Book>()
 
-    init { /* vacío a propósito: esperamos a que BooksScreen indique si hay usuario */ }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // LÓGICA DE RECOMENDACIONES
-    // ─────────────────────────────────────────────────────────────────────────
 
     fun cargarRecomendaciones(idUsuario: Long) {
         val librosCargados = (_recommendadosState.value as? BookUiState.Success)?.books
@@ -153,7 +141,6 @@ class BookViewModel : ViewModel() {
                     !keysEnBiblioteca.contains(book.key) && book.coverId != null
                 }
 
-                // 👇 EL SALVAVIDAS MEJORADO: Si la API devuelve menos de 10 resultados, forzamos una búsqueda genérica
                 if (filtrados.size < 10 && query !in consultasPorDefecto) {
                     ejecutarBusquedaRecomendados(obtenerQueryPorDefecto())
                     return@launch
@@ -178,7 +165,6 @@ class BookViewModel : ViewModel() {
                     filtrados
                 }
 
-                // 👇 AUMENTAMOS EL LÍMITE: Ahora mostrará hasta 30 libros en el carrusel
                 _recommendadosState.value = BookUiState.Success(ordenados.take(30))
             } catch (e: Exception) {
                 _recommendadosState.value = BookUiState.Error("Error de red")
@@ -186,15 +172,12 @@ class BookViewModel : ViewModel() {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // LÓGICA DE BÚSQUEDA
-    // ─────────────────────────────────────────────────────────────────────────
+
 
     fun onQueryChanged(query: String) {
         searchJob?.cancel()
         if (query.length < 3) {
-            // BUG FIX: limpiar el estado al borrar la query evita que queden
-            // resultados de una búsqueda anterior flotando en pantalla
+
             if (query.isEmpty()) _searchState.value = BookUiState.Success(emptyList())
             return
         }

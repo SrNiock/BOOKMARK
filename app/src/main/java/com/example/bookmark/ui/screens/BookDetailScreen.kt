@@ -61,7 +61,7 @@ fun BookDetailScreen(
     var yaGuardado by remember { mutableStateOf(false) }
     var estadoGuardado by remember { mutableStateOf("") }
 
-    // ── Progreso de lectura (solo visible si el libro está en "leyendo") ──
+    // Progreso de lectura
     var libroEnBiblioteca by remember { mutableStateOf<MiLibro?>(null) }
     var sliderPagina by remember { mutableStateOf(0f) }
     var guardandoProgreso by remember { mutableStateOf(false) }
@@ -78,19 +78,14 @@ fun BookDetailScreen(
             ?.books?.find { it.key == bookKey }
         snapshotBook = enRecomendados ?: enBusqueda
     }
-
-    // ── Páginas reales desde Google Books ──
     val paginasReales by viewModel.paginasLibroActual
-
-    // Si el libro no está en memoria (viene desde biblioteca), lo construimos desde BD
     LaunchedEffect(bookKey) {
-        cargandoDesdeBD = true // 👈 Empezamos a cargar
+        cargandoDesdeBD = true
 
         if (idActual != 0L && idActual != -1L) {
             authRepository.obtenerLibroDeBiblioteca(idActual, bookKey)
                 .onSuccess { miLibro ->
                     libroEnBiblioteca = miLibro
-                    // Si no lo encontramos en el ViewModel, construimos un Book desde MiLibro
                     if (snapshotBook == null) {
                         snapshotBook = Book(
                             key             = miLibro.bookKey,
@@ -109,7 +104,6 @@ fun BookDetailScreen(
                 }
         }
 
-        // Cargar páginas reales una vez tengamos datos del libro
         val libroActual = snapshotBook
         if (libroActual != null) {
             viewModel.cargarPaginasLibro(
@@ -118,10 +112,9 @@ fun BookDetailScreen(
             )
         }
 
-        cargandoDesdeBD = false // 👈 Terminamos de cargar
+        cargandoDesdeBD = false
     }
 
-    // Cuando snapshotBook llega desde BD (asíncrono), disparar carga de páginas
     LaunchedEffect(snapshotBook?.key) {
         val libroActual = snapshotBook ?: return@LaunchedEffect
         if (paginasReales == null) {
@@ -155,7 +148,6 @@ fun BookDetailScreen(
                     paginas_totales     = paginasReales ?: book.numeroPaginas
                 )
 
-                // 👇 AHORA LLAMAMOS A LA FUNCIÓN DE INSERTAR
                 authRepository.agregarLibroABiblioteca(miLibro).onSuccess {
                     val nombreLista = when (estadoElegido) {
                         "deseado" -> "Wishlist"
@@ -227,9 +219,6 @@ fun BookDetailScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
-                // ─────────────────────────────────────────────
-                // HERO: portada con backdrop desenfocado
-                // ─────────────────────────────────────────────
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -286,9 +275,6 @@ fun BookDetailScreen(
                     }
                 }
 
-                // ─────────────────────────────────────────────
-                // TÍTULO Y AUTOR
-                // ─────────────────────────────────────────────
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -316,9 +302,6 @@ fun BookDetailScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // ─────────────────────────────────────────────
-                // STATS ROW: año / páginas / guardar
-                // ─────────────────────────────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -339,7 +322,6 @@ fun BookDetailScreen(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
-                    // Páginas: Google Books → fallback campo search → shimmer
                     BookStatItem(
                         label     = "Páginas",
                         value     = paginasReales?.toString()
@@ -430,16 +412,11 @@ fun BookDetailScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // ─────────────────────────────────────────────
-                // PROGRESO DE LECTURA (solo si está en "leyendo")
-                // ─────────────────────────────────────────────
                 val totalPaginas = paginasReales ?: libroEnBiblioteca?.paginas_totales ?: 0
                 val estaLeyendo  = libroEnBiblioteca?.estado == "leyendo"
 
-                // Campo de texto sincronizado con el slider
                 var inputPagina by remember { mutableStateOf("") }
 
-                // Cuando se carga libroEnBiblioteca, inicializamos inputPagina
                 LaunchedEffect(libroEnBiblioteca, paginasReales) {
                     val lib = libroEnBiblioteca ?: return@LaunchedEffect
                     val total = paginasReales ?: lib.paginas_totales ?: 0
@@ -483,7 +460,6 @@ fun BookDetailScreen(
                         ) {
                             Column(modifier = Modifier.padding(20.dp)) {
 
-                                // ── Fila superior: info + badge ──
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -529,7 +505,6 @@ fun BookDetailScreen(
 
                                 Spacer(modifier = Modifier.height(20.dp))
 
-                                // ── Slider ──
                                 val rangoMax = if (totalPaginas > 0) totalPaginas.toFloat() else 100f
                                 Slider(
                                     value       = sliderPagina.coerceIn(0f, rangoMax),
@@ -551,7 +526,6 @@ fun BookDetailScreen(
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                // ── Campo de texto para ingresar página exacta ──
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -560,7 +534,6 @@ fun BookDetailScreen(
                                     OutlinedTextField(
                                         value       = inputPagina,
                                         onValueChange = { nuevo ->
-                                            // Solo dígitos, máx 4 caracteres
                                             if (nuevo.all { it.isDigit() } && nuevo.length <= 4) {
                                                 inputPagina = nuevo
                                                 val num = nuevo.toIntOrNull() ?: 0
@@ -601,7 +574,6 @@ fun BookDetailScreen(
                                         )
                                     )
 
-                                    // Botón guardar compacto
                                     Button(
                                         onClick = {
                                             val libro = libroEnBiblioteca ?: return@Button
@@ -655,7 +627,6 @@ fun BookDetailScreen(
                     Spacer(modifier = Modifier.height(28.dp))
                 }
 
-                // ── SOBRE ESTE LIBRO ──
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -704,9 +675,6 @@ fun BookDetailScreen(
     }
 }
 
-// ─────────────────────────────────────────────
-// STAT ITEM — con shimmer mientras carga páginas
-// ─────────────────────────────────────────────
 @Composable
 fun BookStatItem(
     label: String,

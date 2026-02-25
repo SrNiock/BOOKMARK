@@ -47,9 +47,7 @@ import com.example.bookmark.ui.supaBase.Usuario
 import com.example.bookmark.ui.utils.SessionManager
 import kotlinx.coroutines.launch
 
-// ─────────────────────────────────────────────
-// PANTALLA PRINCIPAL DE BÚSQUEDA
-// ─────────────────────────────────────────────
+
 @Composable
 fun SearchScreen(bookViewModel: BookViewModel, navController: NavHostController) {
     val context = LocalContext.current
@@ -80,9 +78,6 @@ fun SearchScreen(bookViewModel: BookViewModel, navController: NavHostController)
     }
 }
 
-// ─────────────────────────────────────────────
-// CUERPO DE LA PANTALLA
-// ─────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookScreen(
@@ -122,16 +117,12 @@ fun BookScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // ─────────────────────────────────────────────
-        // CABECERA CON TÍTULO + SEARCH BAR
-        // ─────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
                 .padding(top = 12.dp, bottom = 4.dp)
         ) {
-            // Título al estilo del "BookMark" de la TopBar
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -145,7 +136,6 @@ fun BookScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
-                // Selector de modo como chips compactos
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
@@ -178,7 +168,6 @@ fun BookScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Barra de búsqueda elegante
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -237,9 +226,6 @@ fun BookScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // ─────────────────────────────────────────────
-        // RESULTADOS
-        // ─────────────────────────────────────────────
         if (searchMode == "Libros") {
             if (searchText.isEmpty()) {
                 val recomendadosState by viewModel.recommendadosState
@@ -295,9 +281,6 @@ fun BookScreen(
     }
 }
 
-// ─────────────────────────────────────────────
-// CHIP DE MODO (Libros / Usuarios)
-// ─────────────────────────────────────────────
 @Composable
 fun ModeChip(
     label: String,
@@ -332,9 +315,6 @@ fun ModeChip(
     }
 }
 
-// ─────────────────────────────────────────────
-// TEXTFIELD INLINE (sin OutlinedTextField)
-// ─────────────────────────────────────────────
 @Composable
 fun BasicTextField_Compat(
     value: String,
@@ -366,9 +346,6 @@ fun BasicTextField_Compat(
     }
 }
 
-// ─────────────────────────────────────────────
-// ESTADO VACÍO ELEGANTE
-// ─────────────────────────────────────────────
 @Composable
 fun EmptySearchPrompt(mode: String) {
     Box(
@@ -401,9 +378,6 @@ fun EmptySearchPrompt(mode: String) {
     }
 }
 
-// ─────────────────────────────────────────────
-// TARJETA DE USUARIO — rediseñada
-// ─────────────────────────────────────────────
 @Composable
 fun UserCard(
     usuario: Usuario,
@@ -444,7 +418,6 @@ fun UserCard(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -496,7 +469,6 @@ fun UserCard(
             if (usuarioActualId != null && usuarioActualId != usuario.id) {
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Botón seguir estilizado
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
@@ -544,9 +516,6 @@ fun UserCard(
     }
 }
 
-// ─────────────────────────────────────────────
-// RECOMENDADOS EN BÚSQUEDA (estado vacío)
-// ─────────────────────────────────────────────
 @Composable
 fun RecomendadosSearchView(books: List<Book>, navController: NavHostController) {
     LazyColumn(
@@ -667,9 +636,6 @@ fun RecomendadoBookCard(book: Book, navController: NavHostController) {
     }
 }
 
-// ─────────────────────────────────────────────
-// LISTA DE LIBROS CON PAGINACIÓN
-// ─────────────────────────────────────────────
 @Composable
 fun BookList(
     books: List<Book>,
@@ -731,9 +697,6 @@ fun BookList(
     }
 }
 
-// ─────────────────────────────────────────────
-// TARJETA DE LIBRO (resultados de búsqueda)
-// ─────────────────────────────────────────────
 @Composable
 fun BookCard(book: Book, navController: NavHostController) {
     Card(
@@ -821,9 +784,6 @@ fun BookCard(book: Book, navController: NavHostController) {
     }
 }
 
-// ─────────────────────────────────────────────
-// COMPONENTES AUXILIARES
-// ─────────────────────────────────────────────
 @Composable
 fun LoadingView() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

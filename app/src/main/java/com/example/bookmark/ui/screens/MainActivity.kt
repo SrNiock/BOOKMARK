@@ -31,7 +31,7 @@ import com.example.bookmark.ui.navigation.NavGraph
 import com.example.bookmark.ui.navigation.Screen
 import com.example.bookmark.ui.navigation.bottomNavItems
 import com.example.bookmark.ui.theme.BOOKMARKTheme
-import com.example.bookmark.ui.utils.SessionManager // <-- Importamos tu bloc de notas
+import com.example.bookmark.ui.utils.SessionManager
 
 class MainActivity : ComponentActivity() {
 
@@ -42,14 +42,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BOOKMARKTheme {
-                // 1. Leemos el SessionManager al abrir la app
                 val context = LocalContext.current
                 val sessionManager = remember { SessionManager(context) }
-
-                // 2. Comprobamos si hay un correo guardado
                 val isLoggedIn = sessionManager.obtenerCorreoSesion() != null
-
-                // 3. Se lo pasamos al andamio principal
                 CustomScaffold(bookViewModel, isLoggedIn)
             }
         }
@@ -69,8 +64,8 @@ fun CustomScaffold(bookViewModel: BookViewModel, isLoggedIn: Boolean) {
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface, // Fondo limpio
-                    tonalElevation = 0.dp // Quitamos las sombras pesadas
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
                 ) {
                     bottomNavItems.forEach { item ->
                         val isSelected = currentDestination?.hierarchy?.any {
@@ -92,19 +87,16 @@ fun CustomScaffold(bookViewModel: BookViewModel, isLoggedIn: Boolean) {
                                 Icon(
                                     imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
                                     contentDescription = item.name,
-                                    // Hacemos el icono un poco más grande al no haber texto
                                     modifier = Modifier.size(28.dp)
                                 )
                             },
-                            // 1. Quitamos el texto completamente
                             label = null,
                             alwaysShowLabel = false,
 
-                            // 2. Quitamos la píldora y ajustamos los colores para máximo minimalismo
                             colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = Color.Transparent, // Adiós a la píldora de fondo
-                                selectedIconColor = MaterialTheme.colorScheme.primary, // Color vibrante al seleccionar
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) // Gris apagado sin seleccionar
+                                indicatorColor = Color.Transparent,
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
                         )
                     }

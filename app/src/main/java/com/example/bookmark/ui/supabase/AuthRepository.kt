@@ -14,7 +14,7 @@ class AuthRepository {
     private val tablaBiblioteca = client.from("mislibros")
     private val tablaFavoritos = client.from("favoritos")
 
-    // --- 1. LOGIN ---
+    //LOGIN
     suspend fun login(correo: String, contrasena: String): Result<Usuario> {
         return withContext(Dispatchers.IO) {
             try {
@@ -36,7 +36,7 @@ class AuthRepository {
         }
     }
 
-    // --- 2. REGISTRAR ---
+    // REGISTRAR
     suspend fun registrar(usuario: Usuario): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
@@ -48,7 +48,7 @@ class AuthRepository {
         }
     }
 
-    // --- 3. OBTENER DATOS DEL USUARIO ---
+    // OBTENER DATOS DEL USUARIO
     suspend fun obtenerUsuario(correo: String): Result<Usuario> {
         return withContext(Dispatchers.IO) {
             try {
@@ -62,7 +62,7 @@ class AuthRepository {
         }
     }
 
-    // --- 4. SUBIR IMAGEN A STORAGE ---
+    // SUBIR IMAGEN A STORAGE
     suspend fun subirImagenStorage(rutaArchivo: String, bytes: ByteArray): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
@@ -77,7 +77,7 @@ class AuthRepository {
         }
     }
 
-    // --- 5. ACTUALIZAR DATO EN TABLA USUARIOS ---
+    // ACTUALIZAR DATO EN TABLA USUARIOS
     suspend fun actualizarFotoTabla(correo: String, columna: String, valor: String): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
@@ -91,16 +91,15 @@ class AuthRepository {
         }
     }
 
-    // --- 6. BIBLIOTECA: OBTENER UN LIBRO CONCRETO POR USUARIO + BOOKKEY ---
-    // Usada en BookDetailScreen para cargar el progreso actual del libro
-    // --- 6. BIBLIOTECA: OBTENER UN LIBRO CONCRETO POR USUARIO + BOOKKEY ---
+
+    // OBTENER UN LIBRO CONCRETO
     suspend fun obtenerLibroDeBiblioteca(idUsuario: Long, bookKey: String): Result<MiLibro> {
         return withContext(Dispatchers.IO) {
             try {
                 val lista = tablaBiblioteca.select {
                     filter {
                         eq("id_usuario", idUsuario)
-                        // 👇 CAMBIA "bookKey" por "book_key" (con guion bajo)
+
                         eq("book_key", bookKey)
                     }
                 }.decodeList<MiLibro>()
@@ -116,7 +115,7 @@ class AuthRepository {
         }
     }
 
-    // --- 7. BIBLIOTECA: OBTENER LIBROS POR ESTADO ---
+    // OBTENER LIBROS POR ESTADO
     suspend fun obtenerLibrosPorEstado(idUsuario: Long, estado: String): Result<List<MiLibro>> {
         return withContext(Dispatchers.IO) {
             try {
@@ -128,25 +127,25 @@ class AuthRepository {
                 }.decodeList<MiLibro>()
                 Result.success(lista)
             } catch (e: Exception) {
-                println("❌ Error Supabase Biblioteca: ${e.message}")
+                println("Error Supabase Biblioteca: ${e.message}")
                 Result.failure(e)
             }
         }
     }
 
-    // --- 8. BIBLIOTECA: GUARDAR O ACTUALIZAR LIBRO (Upsert) ---
+    // GUARDAR O ACTUALIZAR LIBRO
     suspend fun actualizarLibroEnBiblioteca(libro: MiLibro): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
                 tablaBiblioteca.upsert(libro)
                 Result.success(Unit)
             } catch (e: Exception) {
-                println("❌ Error al guardar libro: ${e.message}")
+                println("Error al guardar libro: ${e.message}")
                 Result.failure(e)
             }
         }
     }
-    // --- 8.5 BIBLIOTECA: AGREGAR NUEVO LIBRO ---
+    // AGREGAR NUEVO LIBRO
     suspend fun agregarLibroABiblioteca(libro: MiLibro): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
@@ -154,12 +153,12 @@ class AuthRepository {
                 tablaBiblioteca.insert(libro)
                 Result.success(Unit)
             } catch (e: Exception) {
-                println("❌ Error al insertar libro: ${e.message}")
+                println("Error al insertar libro: ${e.message}")
                 Result.failure(e)
             }
         }
     }
-    // --- 9. BIBLIOTECA: ACTUALIZAR SOLO EL PROGRESO ---
+    // ACTUALIZAR PROGRESO
     suspend fun actualizarProgreso(idLibro: Int, nuevoProgreso: Int, nuevoEstado: String): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
@@ -176,7 +175,6 @@ class AuthRepository {
         }
     }
 
-    // --- FAVORITOS ---
 
     suspend fun eliminarDeFavoritos(idUsuario: Long, idLibro: Int): Result<Unit> {
         return withContext(Dispatchers.IO) {
@@ -254,7 +252,7 @@ class AuthRepository {
         }
     }
 
-    // --- BÚSQUEDA DE USUARIOS ---
+    // BÚSQUEDA DE USUARIOS
 
     suspend fun buscarUsuarios(query: String): Result<List<Usuario>> {
         return withContext(Dispatchers.IO) {
@@ -284,7 +282,7 @@ class AuthRepository {
         }
     }
 
-    // --- SEGUIDORES ---
+    // SEGUIDORES
 
     suspend fun comprobarSiSigue(idSeguidor: Long, idSeguido: Long): Result<Boolean> {
         return withContext(Dispatchers.IO) {
@@ -362,8 +360,7 @@ class AuthRepository {
         }
     }
 
-    // --- PUBLICACIONES ---
-
+    // PUBLICACIONES
     suspend fun crearPublicacion(publicacion: Publicacion): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
@@ -383,14 +380,13 @@ class AuthRepository {
                     .decodeList<PublicacionFeed>()
                 Result.success(lista.reversed())
             } catch (e: Exception) {
-                println("❌ ERROR AL CARGAR FEED: ${e.message}")
+                println("ERROR AL CARGAR FEED: ${e.message}")
                 Result.failure(e)
             }
         }
     }
 
-    // --- LIKES ---
-
+    // LIKES
     suspend fun darLike(idUsuario: Long, idPublicacion: Long): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
@@ -441,15 +437,14 @@ class AuthRepository {
         }
     }
 
-    // --- COMENTARIOS ---
-
+    // COMENTARIOS
     suspend fun agregarComentario(comentario: Comentario): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
                 client.from("comentarios").insert(comentario)
                 Result.success(Unit)
             } catch (e: Exception) {
-                println("❌ ERROR AL COMENTAR: ${e.message}")
+                println("ERROR AL COMENTAR: ${e.message}")
                 Result.failure(e)
             }
         }
@@ -464,21 +459,20 @@ class AuthRepository {
                     }.decodeList<ComentarioFeed>()
                 Result.success(lista)
             } catch (e: Exception) {
-                println("❌ ERROR AL LEER COMENTARIOS: ${e.message}")
+                println("ERROR AL LEER COMENTARIOS: ${e.message}")
                 Result.failure(e)
             }
         }
     }
 
-    // --- PUBLICACIONES GUARDADAS ---
-
+    // PUBLICACIONES GUARDADAS
     suspend fun guardarPublicacion(idUsuario: Long, idPublicacion: Long): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
                 client.from("publicaciones_guardadas").insert(PublicacionGuardada(idUsuario, idPublicacion))
                 Result.success(Unit)
             } catch (e: Exception) {
-                println("❌ ERROR AL GUARDAR PUBLICACIÓN: ${e.message}")
+                println("ERROR AL GUARDAR PUBLICACIÓN: ${e.message}")
                 Result.failure(e)
             }
         }
@@ -492,7 +486,7 @@ class AuthRepository {
                 }
                 Result.success(Unit)
             } catch (e: Exception) {
-                println("❌ ERROR AL ELIMINAR GUARDADO: ${e.message}")
+                println("ERROR AL ELIMINAR GUARDADO: ${e.message}")
                 Result.failure(e)
             }
         }
@@ -506,14 +500,13 @@ class AuthRepository {
                 }.decodeList<PublicacionGuardada>()
                 Result.success(rows.isNotEmpty())
             } catch (e: Exception) {
-                println("❌ ERROR AL COMPROBAR GUARDADO: ${e.message}")
+                println("ERROR AL COMPROBAR GUARDADO: ${e.message}")
                 Result.failure(e)
             }
         }
     }
 
-    // --- RECOMENDACIONES ---
-
+    // RECOMENDACIONES
     suspend fun obtenerDatosParaRecomendaciones(idUsuario: Long): Result<DatosRecomendacion> {
         return withContext(Dispatchers.IO) {
             try {

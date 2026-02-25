@@ -40,29 +40,22 @@ fun ExternalUserScreen(userId: Long, navController: NavHostController) {
     val sessionManager = remember { SessionManager(context) }
     val coroutineScope = rememberCoroutineScope()
 
-    // ID del usuario que está usando la app
     val miIdActual = sessionManager.obtenerIdSesion() ?: 0L
 
-    // Estados
     var usuarioVisualizado by remember { mutableStateOf<Usuario?>(null) }
     var listaFavoritos by remember { mutableStateOf<List<MiLibro>>(emptyList()) }
     var cargando by remember { mutableStateOf(true) }
 
-    // Estados para el seguimiento
     var isSiguiendo by remember { mutableStateOf(false) }
     var procesandoSeguimiento by remember { mutableStateOf(false) }
 
-    // Carga de datos inicial
     LaunchedEffect(userId) {
-        // 1. Cargamos los datos del usuario
         authRepository.obtenerUsuarioPorId(userId).onSuccess { user ->
             usuarioVisualizado = user
         }
-        // 2. Cargamos sus libros favoritos reales
         authRepository.obtenerFavoritos(userId).onSuccess { favs ->
             listaFavoritos = favs.take(4)
         }
-        // 3. Comprobamos si el usuario actual ya lo sigue
         if (miIdActual != 0L) {
             authRepository.comprobarSiSigue(idSeguidor = miIdActual, idSeguido = userId).onSuccess { loSigue ->
                 isSiguiendo = loSigue
@@ -92,9 +85,7 @@ fun ExternalUserScreen(userId: Long, navController: NavHostController) {
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
     ) {
-        // --- SECCIÓN 1: BANNER, FOTO Y BOTÓN VOLVER ---
         Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
-            // El Banner
             Box(
                 modifier = Modifier.fillMaxWidth().height(160.dp).background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
@@ -104,7 +95,6 @@ fun ExternalUserScreen(userId: Long, navController: NavHostController) {
                 }
             }
 
-            // Botón de Volver atrás
             IconButton(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.padding(top = 40.dp, start = 8.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)
@@ -112,7 +102,6 @@ fun ExternalUserScreen(userId: Long, navController: NavHostController) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
             }
 
-            // La Foto de Perfil
             Box(
                 modifier = Modifier
                     .size(110.dp)
@@ -133,7 +122,6 @@ fun ExternalUserScreen(userId: Long, navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- SECCIÓN 2: INFO Y BOTÓN SEGUIR ---
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -147,21 +135,18 @@ fun ExternalUserScreen(userId: Long, navController: NavHostController) {
                 }
             }
 
-            // Botón Seguir (AHORA FUNCIONAL CON LA BASE DE DATOS)
             if (miIdActual != userId && miIdActual != 0L) {
                 Button(
                     onClick = {
-                        if (procesandoSeguimiento) return@Button // Evita dobles clics
+                        if (procesandoSeguimiento) return@Button
                         procesandoSeguimiento = true
 
                         coroutineScope.launch {
                             if (isSiguiendo) {
-                                // Dejar de seguir
                                 authRepository.dejarDeSeguirUsuario(miIdActual, userId).onSuccess {
                                     isSiguiendo = false
                                 }
                             } else {
-                                // Seguir
                                 authRepository.seguirUsuario(miIdActual, userId).onSuccess {
                                     isSiguiendo = true
                                 }
@@ -188,7 +173,6 @@ fun ExternalUserScreen(userId: Long, navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- SECCIÓN 3: AMISTADES ---
         Text("Amistades de ${usuario.nickname}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Text("Esta lista es privada o no tiene amigos añadidos.", color = Color.Gray, modifier = Modifier.padding(16.dp))
@@ -196,7 +180,6 @@ fun ExternalUserScreen(userId: Long, navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- SECCIÓN 4: FAVORITOS ---
         Text("Favoritos de ${usuario.nickname}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
 
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

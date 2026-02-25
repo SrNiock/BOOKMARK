@@ -38,12 +38,11 @@ fun LoginScreen(
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
 
-    // Colores base para los campos de texto
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = MaterialTheme.colorScheme.onBackground,
         unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-        focusedBorderColor = MaterialTheme.colorScheme.primary, // Borde Naranja al tocar
-        unfocusedBorderColor = Color.DarkGray, // Borde gris en reposo
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = Color.DarkGray,
         cursorColor = MaterialTheme.colorScheme.primary,
         focusedLabelColor = MaterialTheme.colorScheme.primary,
         unfocusedLabelColor = Color.Gray
@@ -52,16 +51,16 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background) // Fondo Negro profundo
-            .padding(24.dp), // Un poco más de margen para que respire mejor
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Título de la App / Pantalla
+        // Título de la App
         Text(
             text = "BOOKMARK",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground, // Texto en blanco
+            color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.Bold
         )
 
@@ -74,7 +73,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // Campo: Correo Electrónico
+        // Correo
         OutlinedTextField(
             value = correo,
             onValueChange = { correo = it.trim() },
@@ -87,7 +86,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Campo: Contraseña
+        // Contraseña
         OutlinedTextField(
             value = contrasena,
             onValueChange = { contrasena = it },
@@ -111,12 +110,12 @@ fun LoginScreen(
             }
         )
 
-        // Mensaje de error
+        // Mensaje error
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = errorMessage!!,
-                color = MaterialTheme.colorScheme.error, // Rojo de error del sistema
+                color = MaterialTheme.colorScheme.error,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -124,7 +123,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Botón principal de Entrar
+        // Botón Entrar
         Button(
             onClick = {
                 if (correo.isNotBlank() && contrasena.isNotBlank()) {
@@ -137,9 +136,8 @@ fun LoginScreen(
                         resultado.onSuccess { usuario ->
                             isLoading = false
 
-                            // 👇 AHORA GUARDAMOS LAS DOS COSAS 👇
+
                             sessionManager.guardarCorreoSesion(correo)
-                            // El id no debería ser nulo si viene de Supabase, pero por si acaso le ponemos ?: 0L
                             sessionManager.guardarIdSesion(usuario.id ?: 0L)
 
                             onLoginSuccess()
@@ -154,18 +152,18 @@ fun LoginScreen(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp), // Altura más táctil y moderna
+                .height(56.dp),
             enabled = !isLoading,
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary, // Naranja
-                contentColor = MaterialTheme.colorScheme.onPrimary // Texto/Iconos negros
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ),
             shape = RoundedCornerShape(14.dp)
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary, // Círculo negro girando
+                    color = MaterialTheme.colorScheme.onPrimary,
                     strokeWidth = 3.dp
                 )
             } else {
@@ -179,11 +177,11 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Botón para ir a registrarse
+        // Botón registrarse
         TextButton(onClick = onNavigateToRegister) {
             Text(
                 text = "¿No tienes cuenta? Regístrate aquí",
-                color = MaterialTheme.colorScheme.primary, // Texto en naranja
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold
             )
         }

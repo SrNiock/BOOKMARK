@@ -31,7 +31,7 @@ fun NavGraph(
         startDestination = startDest,
         modifier = modifier
     ) {
-        // --- RUTA: LOGIN ---
+        // LOGIN
         composable<Screen.Login> {
             LoginScreen(
                 onLoginSuccess = {
@@ -43,7 +43,7 @@ fun NavGraph(
             )
         }
 
-        // --- RUTA: REGISTRO ---
+        // REGISTRO
         composable<Screen.Register> {
             RegisterScreen(
                 onRegisterSuccess = {
@@ -55,7 +55,7 @@ fun NavGraph(
             )
         }
 
-        // --- RUTA: HOME / BOOKS ---
+        // HOME
         composable<Screen.Books> {
             BooksScreen(
                 viewModel = bookViewModel,
@@ -66,22 +66,22 @@ fun NavGraph(
             )
         }
 
-        // --- RUTA: BUSCADOR ---
+        // RUTA
         composable<Screen.Search> {
             SearchScreen(bookViewModel, navController)
         }
 
-        // --- RUTA: BIBLIOTECA ---
+        // BIBLIOTECA
         composable<Screen.Library> {
             BibliotecaScreen(navController = navController)
         }
 
-        // --- RUTA: PERFIL DE USUARIO ---
+        // PERFIL DE USUARIO
         composable<Screen.Profile> {
             UserScreen()
         }
 
-        // --- RUTA: DETALLES DEL LIBRO ---
+        // DETALLES DEL LIBRO
         composable<Screen.BookDetail> { backStackEntry ->
             val detail: Screen.BookDetail = backStackEntry.toRoute()
             val keyLimpia = Uri.decode(detail.bookKey)
@@ -93,7 +93,7 @@ fun NavGraph(
             )
         }
 
-        // --- RUTA: PERFIL EXTERNO ---
+        // PERFIL EXTERNO
         composable<Screen.ExternalProfile> { backStackEntry ->
             val externalProfile: Screen.ExternalProfile = backStackEntry.toRoute()
             ExternalUserScreen(

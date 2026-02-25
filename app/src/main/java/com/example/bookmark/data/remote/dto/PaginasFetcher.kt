@@ -13,9 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.net.URL
 import java.net.URLEncoder
 
-// ─────────────────────────────────────────────
 // DTOs Open Library
-// ─────────────────────────────────────────────
 
 @Serializable
 private data class OLEditionsResponse(
@@ -38,9 +36,9 @@ private data class OLDoc(
     @SerialName("number_of_pages_median") val numberOfPagesMedian: Int? = null
 )
 
-// ─────────────────────────────────────────────
-// DTOs Google Books (fallback)
-// ─────────────────────────────────────────────
+
+// DTOs Google Books
+
 
 @Serializable
 private data class GoogleBooksResponse(
@@ -59,30 +57,20 @@ private data class VolumeInfo(
     @SerialName("authors") val authors: List<String>? = null
 )
 
-// ─────────────────────────────────────────────
 
 private val json = Json { ignoreUnknownKeys = true }
 
-/**
- * Obtiene el número de páginas con 3 estrategias en cascada:
- *   1. Open Library Works API por bookKey  (más fiable, usa el libro exacto)
- *   2. Open Library Search API por título  (si no hay bookKey o falla)
- *   3. Google Books API                    (último recurso)
- *
- * @param titulo   Título del libro
- * @param autor    Autor (mejora precisión en estrategias 2 y 3)
- * @param bookKey  Clave Open Library, ej: "/works/OL27448W" (opcional pero muy recomendado)
- */
+
 suspend fun obtenerNumeroPaginasGoogleBooks(
     titulo: String,
     autor: String? = null,
     bookKey: String? = null
 ): Int? = withContext(Dispatchers.IO) {
 
-    // ── Estrategia 1: Open Library Works API via bookKey ──────────────────
+    //  Open Library Works API
     if (!bookKey.isNullOrBlank()) {
         try {
-            // Normalizamos: "/works/OL27448W" → "OL27448W"
+            // Normalizamos:
             val workId = bookKey.trimStart('/').removePrefix("works/")
             val url = "https://openlibrary.org/works/$workId/editions.json?limit=20&fields=number_of_pages"
             val raw  = URL(url).readText()
@@ -91,15 +79,14 @@ suspend fun obtenerNumeroPaginasGoogleBooks(
             val paginas = resp.entries
                 ?.mapNotNull { it.numberOfPages }
                 ?.filter { it in 50..2000 }
-                // Usamos la mediana para ignorar ediciones raras (condensadas, ilustradas, etc.)
                 ?.sorted()
                 ?.let { list -> list[list.size / 2] }
 
             if (paginas != null) return@withContext paginas
-        } catch (_: Exception) { /* siguiente estrategia */ }
+        } catch (_: Exception) {  }
     }
 
-    // ── Estrategia 2: Open Library Search API por título ──────────────────
+    //Busqueda título
     try {
         val queryParts = mutableListOf("title=${URLEncoder.encode(titulo.trim(), "UTF-8")}")
         if (!autor.isNullOrBlank()) {
@@ -115,9 +102,9 @@ suspend fun obtenerNumeroPaginasGoogleBooks(
             ?.firstOrNull { it in 50..2000 }
 
         if (paginas != null) return@withContext paginas
-    } catch (_: Exception) { /* siguiente estrategia */ }
+    } catch (_: Exception) {  }
 
-    // ── Estrategia 3: Google Books API (último recurso) ───────────────────
+    // Google Books API
     try {
         val tituloLimpio = titulo.trim()
         val apellido     = autor?.trim()?.split(" ")?.last()?.takeIf { it.length > 2 }
@@ -150,7 +137,7 @@ suspend fun obtenerNumeroPaginasGoogleBooks(
 
             if (paginas != null) return@withContext paginas
         }
-    } catch (_: Exception) { /* sin resultado */ }
+    } catch (_: Exception) {  }
 
     null
 }

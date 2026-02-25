@@ -2,19 +2,17 @@ package com.example.bookmark.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoStories
-// Importamos los iconos Rellenos (Filled)
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.LibraryAdd
-import androidx.compose.material.icons.filled.LibraryBooks // <-- Sugerencia
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.AutoStories
-// Importamos los iconos Contorneados (Outlined)
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.LibraryAdd
-import androidx.compose.material.icons.outlined.LibraryBooks // <-- Sugerencia
+import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 
@@ -33,7 +31,7 @@ sealed interface Screen {
     @Serializable data class ExternalProfile(val userId: Long)
 }
 
-// 1. Modificamos TopLevelRoute para aceptar dos iconos
+
 data class TopLevelRoute<T :Any>(
     val name: String,
     val route: T,
@@ -41,7 +39,7 @@ data class TopLevelRoute<T :Any>(
     val unselectedIcon: ImageVector
 )
 
-// 2. Actualizamos la lista con las versiones Filled y Outlined
+
 val bottomNavItems = listOf(
     TopLevelRoute(
         name = "Libros",

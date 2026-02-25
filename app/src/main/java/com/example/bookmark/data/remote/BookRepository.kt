@@ -8,7 +8,7 @@ class BookRepository {
 
     suspend fun searchBooks(query: String, currentPage: Int): List<Book> {
         val response = api.searchBooks(query, page = currentPage)
-        // Devolvemos solo la lista de libros "docs" que está dentro del objeto de respuesta
+
         return response.books
     }
 }

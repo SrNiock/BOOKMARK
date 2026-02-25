@@ -97,7 +97,6 @@ data class PublicacionFeed(
     val usuario: UsuarioPublicacion? = null
 )
 
-// NUEVO: Data class para el Bookmark de publicaciones
 @Serializable
 data class PublicacionGuardada(
     val usuario_id: Long,
